@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vessel Log</title>
+<meta name="theme-color" content="#061224">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vessel Log">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1e38'/%3E%3Ccircle cx='90' cy='90' r='58' fill='none' stroke='%234d9bf0' stroke-width='9'/%3E%3Ccircle cx='90' cy='90' r='9' fill='%234d9bf0'/%3E%3Cpath d='M90 32v18M90 130v18M32 90h18M130 90h18' stroke='%234d9bf0' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E">
+
+<!-- =====================================================================
+     CONFIG — edit this block only. Everything below it is machinery.
+     ===================================================================== -->
+<script>
+const CONFIG = {
+
+  // 1. Paste your Google Apps Script web app URL here (see SETUP.md).
+  //    Leave blank to run in demo mode (nothing saves).
+  SHEET_URL: "https://script.google.com/macros/s/AKfycbzxrIqOkM9rAyA0FiMNITo3kzM442b3uBBrx20aCeHG_8QxU80NU_-8APSt5Lc-ZS01sw/exec",
+
+  // 2. Service interval, in engine hours.
+  SERVICE_INTERVAL: 100,
+
+  // 3. Fleet. baselineHours = each engine's CURRENT meter reading today.
+  BOATS: [
+    { id: "whaler", name: "Boston Whaler", sub: "18′ · Tohatsu",
+      engines: [ { id: "main", label: "Engine", baselineHours: 233 } ] },
+
+    { id: "force",  name: "Force", sub: "22′ · twin Yamaha",
+      engines: [ { id: "port", label: "Port",      baselineHours: 456 },
+                 { id: "stbd", label: "Starboard", baselineHours: 456 } ] }
+  ],
+
+  // 4. Operators, in the order you want them listed.
+  OPERATORS: ["Jesse B.","Kate G.","Andrew G.","Landon K.","Sydney C.",
+              "Lev G.","Julio L.","Paige W.","Nicole M.","Lauren K."],
+
+  // 5. Fuel gauge steps, empty to full.
+  FUEL: ["E","¼","½","¾","F"]
+};
+</script>
+<!-- ================================================================== -->
+
+<style>
+:root{
+  --abyss:#050f1e; --hull:#0a1c34; --deck:#102845; --raise:#16355a;
+  --line:#1e4374; --line-soft:#16304f;
+  --buoy:#57a5f5; --buoy-deep:#2a6fc4;
+  --beacon:#f2b134; --fault:#f0685f; --ok:#43c59e;
+  --ink:#eaf2fd; --mute:#8ba7cd; --faint:#5b7599;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--abyss);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.45;
+  padding-bottom:calc(78px + env(safe-area-inset-bottom));
+  overscroll-behavior-y:contain;
+}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.02em}
+
+/* ---- placard label: the nautical vernacular running through the UI ---- */
+.placard{
+  font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);display:block;margin-bottom:9px;
+}
+
+/* ---- header ---- */
+header{
+  position:sticky;top:0;z-index:40;background:rgba(5,15,30,.93);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft);
+  padding:calc(12px + env(safe-area-inset-top)) 18px 12px;
+  display:flex;align-items:center;gap:12px;
+}
+header .mark{width:26px;height:26px;flex:none}
+header h1{font-size:16px;letter-spacing:.01em}
+.status{
+  margin-left:auto;display:flex;align-items:center;gap:6px;
+  font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.dot.live{background:var(--ok);box-shadow:0 0 0 3px rgba(67,197,158,.16)}
+.dot.demo{background:var(--beacon);box-shadow:0 0 0 3px rgba(242,177,52,.16)}
+
+main{padding:20px 18px 28px;max-width:620px;margin:0 auto}
+.view{display:none;animation:rise .22s ease both}
+.view.on{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- cards ---- */
+.card{
+  background:var(--hull);border:1px solid var(--line-soft);border-radius:16px;
+  padding:18px;margin-bottom:14px;
+}
+.field{margin-bottom:20px}
+
+/* ---- inputs ---- */
+input,select,textarea{
+  width:100%;background:var(--deck);color:var(--ink);
+  border:1px solid var(--line);border-radius:11px;
+  padding:14px 14px;font:400 16px/1.3 var(--sans);
+  appearance:none;transition:border-color .15s,background .15s;
+}
+textarea{min-height:92px;resize:vertical;line-height:1.5}
+input:focus,select,textarea:focus{outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--buoy);background:var(--raise)}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238ba7cd' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 15px center;padding-right:38px;
+}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) saturate(3) hue-rotate(180deg)}
+
+/* ---- segmented pickers ---- */
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{
+  flex:1 1 0;min-width:fit-content;background:var(--deck);color:var(--mute);
+  border:1px solid var(--line);border-radius:11px;padding:13px 10px;
+  font:600 14px/1.2 var(--sans);cursor:pointer;transition:.15s;
+}
+.seg button .sub{display:block;font:500 11px/1.3 var(--mono);color:var(--faint);margin-top:3px;letter-spacing:.04em}
+.seg button[aria-pressed=true]{background:var(--buoy-deep);border-color:var(--buoy);color:#fff}
+.seg button[aria-pressed=true] .sub{color:#cfe4fb}
+.seg.fuel button{flex:1;font-family:var(--mono);font-size:16px;padding:14px 4px}
+
+/* ---- engine hour inputs ---- */
+.eng{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.eng label{
+  flex:0 0 92px;font:600 11px/1.3 var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--mute);
+}
+.eng input{font-family:var(--mono);font-size:19px;text-align:right;padding-right:52px}
+.eng .wrap{position:relative;flex:1}
+.eng .unit{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  font:600 12px var(--mono);color:var(--faint);pointer-events:none;letter-spacing:.08em;
+}
+.mirror{
+  background:none;border:none;color:var(--buoy);font:600 12px var(--sans);
+  padding:2px 0 0 104px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;
+}
+
+/* ---- buttons ---- */
+.btn{
+  width:100%;background:var(--buoy-deep);color:#fff;border:1px solid var(--buoy);
+  border-radius:12px;padding:17px;font:650 16px var(--sans);cursor:pointer;
+  transition:.15s;letter-spacing:.01em;
+}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--buoy);border-color:var(--line)}
+.btn.sm{padding:10px 14px;font-size:13px;width:auto;border-radius:9px}
+:focus-visible{outline:2px solid var(--buoy);outline-offset:2px}
+
+/* ---- SIGNATURE: the hour meter ---- */
+.meter{
+  background:var(--hull);border:1px solid var(--line-soft);border-radius:16px;
+  padding:16px 18px 18px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.meter .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.meter .who{font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.meter .to-go{font:600 11px var(--mono);letter-spacing:.06em;color:var(--faint)}
+.reading{display:flex;align-items:baseline;gap:3px;margin-bottom:14px}
+.digit{
+  font:700 34px/1 var(--mono);color:var(--ink);background:var(--deck);
+  border:1px solid var(--line);border-radius:6px;padding:8px 6px;min-width:30px;text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.digit.lo{color:var(--buoy);background:var(--raise)}
+.reading .pt{font:700 30px var(--mono);color:var(--faint);align-self:flex-end;padding-bottom:8px}
+.reading .hrs{font:600 11px var(--mono);letter-spacing:.14em;color:var(--faint);margin-left:8px}
+.track{height:6px;background:var(--deck);border-radius:99px;overflow:hidden;border:1px solid var(--line-soft)}
+.track i{display:block;height:100%;background:linear-gradient(90deg,var(--buoy-deep),var(--buoy));border-radius:99px;transition:width .5s ease}
+.meter.due .track i{background:linear-gradient(90deg,#c98a1a,var(--beacon))}
+.meter.due .to-go{color:var(--beacon)}
+.ticks{display:flex;justify-content:space-between;margin-top:7px;font:600 10px var(--mono);color:var(--faint);letter-spacing:.06em}
+
+/* ---- tickets ---- */
+.ticket{
+  background:var(--hull);border:1px solid var(--line-soft);border-left:3px solid var(--line);
+  border-radius:12px;padding:15px 16px;margin-bottom:11px;
+}
+.ticket.p-high{border-left-color:var(--fault)}
+.ticket.p-med{border-left-color:var(--beacon)}
+.ticket.p-low{border-left-color:var(--buoy)}
+.ticket.done{opacity:.5;border-left-color:var(--ok)}
+.ticket .hd{display:flex;gap:10px;align-items:flex-start;margin-bottom:5px}
+.ticket .hd h3{font-size:15px;flex:1}
+.tag{
+  font:600 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+  padding:5px 7px;border-radius:5px;background:var(--deck);color:var(--mute);
+  border:1px solid var(--line);white-space:nowrap;
+}
+.tag.auto{background:rgba(242,177,52,.13);color:var(--beacon);border-color:rgba(242,177,52,.35)}
+.ticket .meta{font:500 11px var(--mono);color:var(--faint);letter-spacing:.05em;margin-bottom:8px}
+.ticket p{margin:0 0 12px;font-size:14px;color:var(--mute);line-height:1.5}
+.ticket .acts{display:flex;gap:8px;align-items:center}
+
+.tabs2{display:flex;gap:8px;margin-bottom:16px}
+.tabs2 button{
+  flex:1;background:var(--hull);border:1px solid var(--line-soft);color:var(--mute);
+  border-radius:10px;padding:10px;font:600 12px var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;cursor:pointer;
+}
+.tabs2 button[aria-pressed=true]{background:var(--deck);border-color:var(--buoy);color:var(--ink)}
+
+.empty{text-align:center;padding:44px 24px;color:var(--faint)}
+.empty svg{opacity:.35;margin-bottom:14px}
+.empty p{margin:0;font-size:14px;line-height:1.6}
+
+/* ---- recent log rows ---- */
+.row{
+  display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft);font-size:14px;
+}
+.row:last-child{border-bottom:none}
+.row .d{font:600 11px var(--mono);color:var(--faint);flex:0 0 46px;letter-spacing:.04em;padding-top:2px}
+.row .b{flex:1;min-width:0}
+.row .b strong{font-weight:600;font-size:14px}
+.row .b span{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
+.row .h{font:700 15px var(--mono);color:var(--buoy);white-space:nowrap;padding-top:1px}
+
+/* ---- bottom nav ---- */
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:rgba(8,22,42,.96);backdrop-filter:blur(16px);
+  border-top:1px solid var(--line-soft);display:flex;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+}
+nav button{
+  flex:1;background:none;border:none;color:var(--faint);cursor:pointer;
+  padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  font:600 10px var(--mono);letter-spacing:.11em;text-transform:uppercase;border-radius:10px;
+}
+nav button[aria-pressed=true]{color:var(--buoy)}
+nav button svg{width:21px;height:21px}
+.badge{
+  position:absolute;transform:translate(13px,-6px);background:var(--fault);color:#fff;
+  font:700 9px var(--mono);min-width:15px;height:15px;border-radius:99px;
+  display:grid;place-items:center;padding:0 4px;
+}
+
+/* ---- toast ---- */
+#toast{
+  position:fixed;left:14px;right:14px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:80;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;
+}
+.toast{
+  background:var(--raise);border:1px solid var(--buoy);border-radius:12px;padding:14px 16px;
+  font-size:14px;box-shadow:0 12px 34px rgba(0,0,0,.5);animation:pop .25s ease both;
+}
+.toast.warn{border-color:var(--beacon);background:#2c2411}
+.toast.bad{border-color:var(--fault);background:#2e1614}
+.toast strong{display:block;font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;color:var(--mute)}
+@keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.hint{font-size:12.5px;color:var(--faint);line-height:1.55;margin:8px 0 0}
+.qr{background:#fff;padding:12px;border-radius:12px;width:fit-content;margin:0 auto 12px;display:grid;place-items:center;min-height:60px}
+.url{font:500 12px var(--mono);color:var(--mute);word-break:break-all;text-align:center;line-height:1.6}
+hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="mark" viewBox="0 0 180 180" aria-hidden="true">
+    <circle cx="90" cy="90" r="58" fill="none" stroke="#57a5f5" stroke-width="10"/>
+    <circle cx="90" cy="90" r="10" fill="#57a5f5"/>
+    <path d="M90 32v18M90 130v18M32 90h18M130 90h18" stroke="#57a5f5" stroke-width="10" stroke-linecap="round"/>
+  </svg>
+  <h1>Vessel Log</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Checking</span></div>
+</header>
+
+<main>
+  <!-- ============ LOG ============ -->
+  <section class="view on" id="v-log">
+    <div class="card">
+      <div class="field">
+        <span class="placard">Date</span>
+        <input type="date" id="f-date">
+      </div>
+
+      <div class="field">
+        <span class="placard">Vessel</span>
+        <div class="seg" id="f-boat"></div>
+      </div>
+
+      <div class="field">
+        <span class="placard">Hours run today</span>
+        <div id="f-engines"></div>
+      </div>
+
+      <div class="field">
+        <span class="placard">Operator</span>
+        <select id="f-operator"><option value="">Select operator</option></select>
+      </div>
+
+      <div class="field">
+        <span class="placard">Activity</span>
+        <input type="text" id="f-activity" placeholder="e.g. reef transect survey">
+      </div>
+
+      <div class="field">
+        <span class="placard">Location</span>
+        <input type="text" id="f-location" placeholder="e.g. Kāneʻohe Bay, south sector">
+      </div>
+
+      <div class="field">
+        <span class="placard">Fuel remaining</span>
+        <div class="seg fuel" id="f-fuel"></div>
+      </div>
+
+      <div class="field" style="margin-bottom:22px">
+        <span class="placard">Notes <span style="color:var(--faint);text-transform:none;letter-spacing:0">— optional</span></span>
+        <textarea id="f-notes" placeholder="Sea state, anything unusual, gear aboard…"></textarea>
+      </div>
+
+      <button class="btn" id="save-log">Save log entry</button>
+    </div>
+  </section>
+
+  <!-- ============ TICKETS ============ -->
+  <section class="view" id="v-tickets">
+    <div class="tabs2">
+      <button data-t="open" aria-pressed="true">Open</button>
+      <button data-t="done" aria-pressed="false">Repaired</button>
+      <button data-t="new"  aria-pressed="false">New</button>
+    </div>
+
+    <div id="t-list"></div>
+
+    <div class="card" id="t-form" style="display:none">
+      <div class="field">
+        <span class="placard">Vessel</span>
+        <div class="seg" id="t-boat"></div>
+      </div>
+      <div class="field">
+        <span class="placard">What's wrong</span>
+        <input type="text" id="t-title" placeholder="e.g. Port trim pump not holding">
+      </div>
+      <div class="field">
+        <span class="placard">Component or location</span>
+        <input type="text" id="t-part" placeholder="e.g. port engine, bilge, trailer">
+      </div>
+      <div class="field">
+        <span class="placard">Priority</span>
+        <div class="seg" id="t-prio"></div>
+      </div>
+      <div class="field">
+        <span class="placard">Details</span>
+        <textarea id="t-desc" placeholder="When it happened, what it sounds or looks like, whether the boat is still usable…"></textarea>
+      </div>
+      <div class="field">
+        <span class="placard">Reported by</span>
+        <select id="t-by"><option value="">Select operator</option></select>
+      </div>
+      <button class="btn" id="save-ticket">Open ticket</button>
+    </div>
+  </section>
+
+  <!-- ============ FLEET ============ -->
+  <section class="view" id="v-fleet">
+    <div id="meters"></div>
+    <div class="card">
+      <span class="placard">Recent entries</span>
+      <div id="recent"></div>
+    </div>
+    <div class="card">
+      <span class="placard">Put this on a phone</span>
+      <div class="qr" id="qr"></div>
+      <p class="url" id="url"></p>
+      <p class="hint">Scan, then use <strong>Share → Add to Home Screen</strong> on iPhone or <strong>⋮ → Install app</strong> on Android. It opens full screen with no browser bar.</p>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-v="log" aria-pressed="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 016.5 3H19v15H6.5A2.5 2.5 0 004 20.5z"/><path d="M4 20.5A2.5 2.5 0 016.5 18H19v3H6.5A2.5 2.5 0 014 20.5zM9 8h6"/></svg>
+    Log
+  </button>
+  <button data-v="tickets" aria-pressed="false">
+    <span class="badge" id="nav-badge" style="display:none">0</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.8-3.8a6 6 0 01-7.9 7.9l-6.9 6.9a2.1 2.1 0 01-3-3l6.9-6.9a6 6 0 017.9-7.9l-3.8 3.8z"/></svg>
+    Repairs
+  </button>
+  <button data-v="fleet" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+    Fleet
+  </button>
+</nav>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ===================== state ===================== */
+const S = {
+  logs: [], tickets: [],
+  boat: CONFIG.BOATS[0].id, fuel: null, hours: {},
+  tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tView: "open",
+  live: !!CONFIG.SHEET_URL.trim(), busy: false
+};
+const $ = s => document.querySelector(s);
+const boatById = id => CONFIG.BOATS.find(b => b.id === id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* ===================== transport ===================== */
+async function api(payload) {
+  if (!S.live) return demo(payload);
+  const r = await fetch(CONFIG.SHEET_URL, {
+    method: "POST", redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
+    body: JSON.stringify(payload)
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.error || "The sheet rejected that entry.");
+  return d;
+}
+
+/* In-memory stand-in so the app is fully usable before the sheet is wired up. */
+function demo(p) {
+  if (p.action === "load") return { ok: true, logs: S.logs, tickets: S.tickets };
+  if (p.action === "log") {
+    const made = [];
+    p.rows.forEach(row => {
+      const before = totalFor(row.boat, row.engine);
+      S.logs.unshift(row);
+      const after = before + row.hours;
+      const step = CONFIG.SERVICE_INTERVAL;
+      for (let m = (Math.floor(before / step) + 1) * step; m <= after; m += step) {
+        const b = boatById(row.boat), e = b.engines.find(x => x.id === row.engine);
+        const t = {
+          id: uid(), created: row.date, boat: row.boat, part: e.label + " engine",
+          title: `${step >= 100 ? m : m}-hour service — ${b.name} ${e.label}`,
+          priority: "Medium", by: "Automatic",
+          desc: `Meter passed ${m} h on ${row.date}. Scheduled service due.`,
+          auto: true, status: "open", closed: ""
+        };
+        S.tickets.unshift(t); made.push(t.title);
+      }
+    });
+    return { ok: true, milestones: made };
+  }
+  if (p.action === "ticket") { S.tickets.unshift(p.ticket); return { ok: true }; }
+  if (p.action === "close") {
+    const t = S.tickets.find(x => x.id === p.id);
+    if (t) { t.status = p.status; t.closed = p.status === "done" ? today() : ""; }
+    return { ok: true };
+  }
+  return { ok: true };
+}
+
+async function load() {
+  try {
+    const d = await api({ action: "load" });
+    S.logs = d.logs || []; S.tickets = d.tickets || [];
+  } catch (e) {
+    toast("bad", "Can't reach the sheet", e.message);
+  }
+  paint();
+}
+
+/* ===================== helpers ===================== */
+const today = () => new Date().toLocaleDateString("en-CA");
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+
+function totalFor(boatId, engId) {
+  const e = boatById(boatId).engines.find(x => x.id === engId);
+  return S.logs.filter(l => l.boat === boatId && l.engine === engId)
+               .reduce((s, l) => s + num(l.hours), num(e.baselineHours));
+}
+
+function toast(kind, head, body) {
+  const el = document.createElement("div");
+  el.className = "toast" + (kind ? " " + kind : "");
+  el.innerHTML = `<strong>${esc(head)}</strong>${esc(body)}`;
+  $("#toast").appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .3s"; el.style.opacity = 0;
+    setTimeout(() => el.remove(), 320); }, kind === "warn" ? 7000 : 4200);
+}
+
+/* ===================== build controls ===================== */
+function segment(host, items, get, set) {
+  host.innerHTML = items.map(i =>
+    `<button type="button" data-v="${esc(i.v)}" aria-pressed="${get() === i.v}">${esc(i.t)}${
+      i.s ? `<span class="sub">${esc(i.s)}</span>` : ""}</button>`).join("");
+  host.onclick = ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    set(b.dataset.v);
+    [...host.children].forEach(c => c.setAttribute("aria-pressed", c === b));
+  };
+}
+
+function buildForm() {
+  $("#f-date").value = today();
+
+  const boats = CONFIG.BOATS.map(b => ({ v: b.id, t: b.name, s: b.sub }));
+  segment($("#f-boat"), boats, () => S.boat, v => { S.boat = v; engineInputs(); });
+  segment($("#t-boat"), boats, () => S.tBoat, v => S.tBoat = v);
+  segment($("#t-prio"), ["Low","Medium","High"].map(p => ({ v: p, t: p })),
+           () => S.tPrio, v => S.tPrio = v);
+  segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
+
+  const opts = CONFIG.OPERATORS.map(o => `<option>${esc(o)}</option>`).join("");
+  $("#f-operator").insertAdjacentHTML("beforeend", opts);
+  $("#t-by").insertAdjacentHTML("beforeend", opts);
+
+  engineInputs();
+}
+
+function engineInputs() {
+  const b = boatById(S.boat), twin = b.engines.length > 1;
+  $("#f-engines").innerHTML = b.engines.map(e => `
+    <div class="eng">
+      <label for="h-${e.id}">${esc(e.label)}</label>
+      <div class="wrap">
+        <input id="h-${e.id}" type="number" inputmode="decimal" step="0.1" min="0" max="24" placeholder="0.0">
+        <span class="unit">HRS</span>
+      </div>
+    </div>`).join("") +
+    (twin ? `<button type="button" class="mirror" id="mirror">Same as port</button>` : "");
+  if (twin) $("#mirror").onclick = () => {
+    $("#h-stbd").value = $("#h-port").value;
+    $("#h-stbd").focus(); $("#h-stbd").blur();
+  };
+}
+
+/* ===================== render ===================== */
+function paint() { meters(); ticketList(); recent(); badge(); }
+
+function meters() {
+  const step = CONFIG.SERVICE_INTERVAL;
+  $("#meters").innerHTML = CONFIG.BOATS.map(b => b.engines.map(e => {
+    const t = totalFor(b.id, e.id);
+    const into = t % step, left = step - into, next = Math.floor(t / step) * step + step;
+    const due = left <= step * 0.1;
+    const whole = Math.floor(t).toString().padStart(4, "0");
+    const dec = Math.round((t - Math.floor(t)) * 10);
+    return `<div class="meter ${due ? "due" : ""}">
+      <div class="top">
+        <span class="who">${esc(b.name)}${b.engines.length > 1 ? " · " + esc(e.label) : ""}</span>
+        <span class="to-go">${left.toFixed(1)} h to ${next}</span>
+      </div>
+      <div class="reading">
+        ${whole.split("").map((d, i) =>
+          `<span class="digit${i === whole.length - 1 ? " lo" : ""}">${d}</span>`).join("")}
+        <span class="pt">.</span><span class="digit lo">${dec}</span>
+        <span class="hrs">HOURS</span>
+      </div>
+      <div class="track"><i style="width:${Math.max(2, (into / step) * 100).toFixed(1)}%"></i></div>
+      <div class="ticks"><span>${next - step}</span><span>SERVICE AT ${next}</span></div>
+    </div>`;
+  }).join("")).join("");
+}
+
+function ticketList() {
+  const host = $("#t-list"), form = $("#t-form");
+  if (S.tView === "new") { host.innerHTML = ""; form.style.display = "block"; return; }
+  form.style.display = "none";
+
+  const want = S.tView === "open" ? "open" : "done";
+  const list = S.tickets.filter(t => (t.status || "open") === want);
+
+  if (!list.length) {
+    host.innerHTML = `<div class="empty">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      <p>${want === "open"
+        ? "No open repairs. Anything that breaks in the field goes here — tap <strong>New</strong>."
+        : "Nothing marked repaired yet."}</p></div>`;
+    return;
+  }
+
+  host.innerHTML = list.map(t => {
+    const b = boatById(t.boat);
+    return `<div class="ticket p-${(t.priority || "med").toLowerCase().slice(0,3)} ${t.status === "done" ? "done" : ""}">
+      <div class="hd">
+        <h3>${esc(t.title)}</h3>
+        ${t.auto ? '<span class="tag auto">Scheduled</span>' : `<span class="tag">${esc(t.priority)}</span>`}
+      </div>
+      <div class="meta">${esc(b ? b.name : t.boat)}${t.part ? " · " + esc(t.part) : ""} · ${esc(t.created)} · ${esc(t.by)}</div>
+      ${t.desc ? `<p>${esc(t.desc)}</p>` : ""}
+      <div class="acts">
+        <button class="btn sm ${t.status === "done" ? "ghost" : ""}" data-close="${esc(t.id)}" data-to="${t.status === "done" ? "open" : "done"}">
+          ${t.status === "done" ? "Reopen" : "Mark repaired"}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+
+  host.querySelectorAll("[data-close]").forEach(btn => btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      await api({ action: "close", id: btn.dataset.close, status: btn.dataset.to });
+      const t = S.tickets.find(x => x.id === btn.dataset.close);
+      if (t) { t.status = btn.dataset.to; t.closed = btn.dataset.to === "done" ? today() : ""; }
+      paint();
+    } catch (e) { btn.disabled = false; toast("bad", "Didn't save", e.message); }
+  });
+}
+
+function recent() {
+  const seen = new Set(), out = [];
+  for (const l of S.logs) {
+    if (seen.has(l.entry)) continue;
+    seen.add(l.entry);
+    const same = S.logs.filter(x => x.entry === l.entry);
+    out.push({ ...l, hours: same.reduce((s, x) => s + num(x.hours), 0), n: same.length });
+    if (out.length === 8) break;
+  }
+  $("#recent").innerHTML = out.length ? out.map(l => {
+    const b = boatById(l.boat);
+    return `<div class="row">
+      <div class="d">${esc((l.date || "").slice(5))}</div>
+      <div class="b"><strong>${esc(b ? b.name : l.boat)} · ${esc(l.operator)}</strong>
+        <span>${esc(l.activity || "—")}${l.location ? " · " + esc(l.location) : ""} · fuel ${esc(l.fuel || "—")}</span></div>
+      <div class="h">${l.hours.toFixed(1)}<span style="font-size:10px;color:var(--faint)"> h</span></div>
+    </div>`;
+  }).join("") : `<p class="hint" style="margin:4px 0">Entries appear here as they're logged.</p>`;
+}
+
+function badge() {
+  const n = S.tickets.filter(t => (t.status || "open") === "open").length;
+  const el = $("#nav-badge");
+  el.style.display = n ? "grid" : "none"; el.textContent = n;
+}
+
+/* ===================== actions ===================== */
+$("#save-log").onclick = async () => {
+  if (S.busy) return;
+  const b = boatById(S.boat);
+  const date = $("#f-date").value, op = $("#f-operator").value.trim();
+  const act = $("#f-activity").value.trim(), loc = $("#f-location").value.trim();
+
+  const hrs = b.engines.map(e => ({ e, v: num($("#h-" + e.id).value) }));
+  const miss = [];
+  if (!date) miss.push("a date");
+  if (!op) miss.push("an operator");
+  if (!act) miss.push("an activity");
+  if (!hrs.some(h => h.v > 0)) miss.push("engine hours");
+  if (!S.fuel) miss.push("a fuel level");
+  if (miss.length) return toast("warn", "Still needed", "Add " + miss.join(", ") + ".");
+  if (hrs.some(h => h.v > 24)) return toast("warn", "Check the hours", "That's more than 24 hours on one engine.");
+
+  const entry = uid(), btn = $("#save-log");
+  S.busy = true; btn.disabled = true; btn.textContent = "Saving…";
+
+  const rows = hrs.filter(h => h.v > 0).map(h => ({
+    entry, ts: new Date().toISOString(), date, boat: b.id, boatName: b.name,
+    engine: h.e.id, engineLabel: h.e.label, hours: h.v,
+    operator: op, activity: act, location: loc,
+    fuel: S.fuel, notes: $("#f-notes").value.trim()
+  }));
+
+  try {
+    const d = await api({ action: "log", rows });
+    if (S.live) rows.forEach(r => S.logs.unshift(r));
+    (d.milestones || []).forEach(m => toast("warn", "Service ticket opened", m));
+    toast("", "Logged", `${rows.reduce((s, r) => s + r.hours, 0).toFixed(1)} h on ${b.name}, ${op}.`);
+    ["f-activity","f-location","f-notes"].forEach(id => $("#" + id).value = "");
+    b.engines.forEach(e => $("#h-" + e.id).value = "");
+    S.fuel = null;
+    segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
+    paint();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (e) {
+    toast("bad", "Not saved", e.message);
+  } finally {
+    S.busy = false; btn.disabled = false; btn.textContent = "Save log entry";
+  }
+};
+
+$("#save-ticket").onclick = async () => {
+  if (S.busy) return;
+  const title = $("#t-title").value.trim(), by = $("#t-by").value;
+  if (!title || !by) return toast("warn", "Still needed", "Add what's wrong and who's reporting it.");
+
+  const t = {
+    id: uid(), created: today(), boat: S.tBoat, part: $("#t-part").value.trim(),
+    title, priority: S.tPrio, by, desc: $("#t-desc").value.trim(),
+    auto: false, status: "open", closed: ""
+  };
+  const btn = $("#save-ticket");
+  S.busy = true; btn.disabled = true; btn.textContent = "Opening…";
+  try {
+    await api({ action: "ticket", ticket: t });
+    if (S.live) S.tickets.unshift(t);
+    ["t-title","t-part","t-desc"].forEach(id => $("#" + id).value = "");
+    $("#t-by").value = "";
+    switchTicketTab("open");
+    toast("", "Ticket opened", title);
+  } catch (e) { toast("bad", "Not saved", e.message); }
+  finally { S.busy = false; btn.disabled = false; btn.textContent = "Open ticket"; }
+};
+
+function switchTicketTab(t) {
+  S.tView = t;
+  document.querySelectorAll(".tabs2 button").forEach(b =>
+    b.setAttribute("aria-pressed", b.dataset.t === t));
+  ticketList();
+}
+document.querySelectorAll(".tabs2 button").forEach(b =>
+  b.onclick = () => switchTicketTab(b.dataset.t));
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + b.dataset.v));
+  window.scrollTo(0, 0);
+});
+
+/* ===================== boot ===================== */
+(function init() {
+  buildForm();
+  const live = S.live;
+  $("#dot").className = "dot " + (live ? "live" : "demo");
+  $("#statusText").textContent = live ? "Saving to sheet" : "Demo — not saving";
+
+  const url = location.href.split("#")[0];
+  $("#url").textContent = url;
+  try {
+    if (window.QRCode && location.protocol.startsWith("http"))
+      new QRCode($("#qr"), { text: url, width: 168, height: 168, correctLevel: QRCode.CorrectLevel.M });
+    else
+      $("#qr").outerHTML = `<p class="hint" style="text-align:center">The QR code appears once the app is on a real web address.</p>`;
+  } catch (e) {}
+
+  if (!live) {
+    // A little sample data so the meters and tickets aren't blank on first look.
+    const d = n => new Date(Date.now() - n * 864e5).toLocaleDateString("en-CA");
+    S.logs = [
+      { entry:"a", date:d(1), boat:"force", boatName:"Force", engine:"port", engineLabel:"Port", hours:4.2,
+        operator:"Kate G.", activity:"Reef transect survey", location:"Kāneʻohe Bay", fuel:"½" },
+      { entry:"a", date:d(1), boat:"force", boatName:"Force", engine:"stbd", engineLabel:"Starboard", hours:4.2,
+        operator:"Kate G.", activity:"Reef transect survey", location:"Kāneʻohe Bay", fuel:"½" },
+      { entry:"b", date:d(3), boat:"whaler", boatName:"Boston Whaler", engine:"main", engineLabel:"Engine", hours:2.6,
+        operator:"Jesse B.", activity:"Sensor recovery", location:"Sampan Channel", fuel:"¾" },
+      { entry:"c", date:d(6), boat:"whaler", boatName:"Boston Whaler", engine:"main", engineLabel:"Engine", hours:5.1,
+        operator:"Andrew G.", activity:"Larval tow", location:"Outside the barrier reef", fuel:"¼" }
+    ];
+    S.tickets = [{ id:"s1", created:d(3), boat:"whaler", part:"Bilge", title:"Bilge pump cycling on a dry bilge",
+      priority:"Medium", by:"Jesse B.", desc:"Runs every few minutes at the dock. Float switch may be stuck.",
+      auto:false, status:"open", closed:"" }];
+    paint();
+  } else {
+    load();
+  }
+})();
+</script>
+</body>
+</html>
