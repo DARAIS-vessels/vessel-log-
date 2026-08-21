@@ -45,10 +45,11 @@ function doPost(e) {
     lock.waitLock(20000);
     var p = JSON.parse(e.postData.contents);
 
-    if (p.action === "load")   return out_(load_());
-    if (p.action === "log")    return out_(addLogs_(p.rows));
-    if (p.action === "ticket") return out_(addTicket_(p.ticket));
-    if (p.action === "close")  return out_(setStatus_(p.id, p.status));
+    if (p.action === "load")      return out_(load_());
+    if (p.action === "log")       return out_(addLogs_(p.rows));
+    if (p.action === "deleteLog") return out_(deleteLogs_(p.entry));
+    if (p.action === "ticket")    return out_(addTicket_(p.ticket));
+    if (p.action === "close")     return out_(setStatus_(p.id, p.status));
     return out_({ ok: false, error: "Unknown action: " + p.action });
 
   } catch (err) {
@@ -120,6 +121,17 @@ function addLogs_(rows) {
   });
 
   return { ok: true, milestones: made };
+}
+
+/** Removes every row (one per engine) sharing this entry ID. */
+function deleteLogs_(entry) {
+  var sh = sheet_("Logs", LOG_HEAD);
+  var vals = sh.getDataRange().getValues();
+  var removed = 0;
+  for (var i = vals.length - 1; i >= 1; i--) {
+    if (String(vals[i][1]) === String(entry)) { sh.deleteRow(i + 1); removed++; }
+  }
+  return { ok: true, removed: removed };
 }
 
 function addTicket_(t) {
