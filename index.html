@@ -312,7 +312,15 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 
       <div class="field">
         <span class="placard">Location</span>
-        <input type="text" id="f-location" placeholder="e.g. Kāneʻohe Bay, south sector">
+        <select id="f-location">
+          <option value="">Select location</option>
+          <option>Kāneʻohe Bay</option>
+          <option>Pearl Harbor</option>
+          <option>Kakaʻako</option>
+          <option>Reef Runway</option>
+          <option value="__other">Other…</option>
+        </select>
+        <input type="text" id="f-location-other" placeholder="Enter location" style="display:none;margin-top:8px">
       </div>
 
       <div class="field">
@@ -517,6 +525,13 @@ function buildForm() {
   $("#f-operator").insertAdjacentHTML("beforeend", opts);
   $("#t-by").insertAdjacentHTML("beforeend", opts);
 
+  $("#f-location").onchange = () => {
+    const other = $("#f-location-other");
+    const isOther = $("#f-location").value === "__other";
+    other.style.display = isOther ? "block" : "none";
+    if (isOther) other.focus(); else other.value = "";
+  };
+
   engineInputs();
 }
 
@@ -652,7 +667,9 @@ $("#save-log").onclick = async () => {
   if (S.busy) return;
   const b = boatById(S.boat);
   const date = $("#f-date").value, op = $("#f-operator").value.trim();
-  const act = $("#f-activity").value.trim(), loc = $("#f-location").value.trim();
+  const act = $("#f-activity").value.trim();
+  const locSel = $("#f-location").value;
+  const loc = locSel === "__other" ? $("#f-location-other").value.trim() : locSel;
 
   const hrs = b.engines.map(e => ({ e, v: num($("#h-" + e.id).value) }));
   const miss = [];
@@ -679,7 +696,8 @@ $("#save-log").onclick = async () => {
     if (S.live) rows.forEach(r => S.logs.unshift(r));
     (d.milestones || []).forEach(m => toast("warn", "Service ticket opened", m));
     toast("", "Logged", `${rows.reduce((s, r) => s + r.hours, 0).toFixed(1)} h on ${b.name}, ${op}.`);
-    ["f-activity","f-location","f-notes"].forEach(id => $("#" + id).value = "");
+    ["f-activity","f-location","f-location-other","f-notes"].forEach(id => $("#" + id).value = "");
+    $("#f-location-other").style.display = "none";
     b.engines.forEach(e => $("#h-" + e.id).value = "");
     S.fuel = null;
     segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
