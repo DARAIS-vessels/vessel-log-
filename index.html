@@ -335,9 +335,8 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
   <!-- ============ TICKETS ============ -->
   <section class="view" id="v-tickets">
     <div class="tabs2">
-      <button data-t="open" aria-pressed="true">Open</button>
-      <button data-t="done" aria-pressed="false">Repaired</button>
-      <button data-t="new"  aria-pressed="false">New</button>
+      <button data-t="all" aria-pressed="true">All</button>
+      <button data-t="new" aria-pressed="false">New</button>
     </div>
 
     <div id="t-list"></div>
@@ -411,7 +410,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 const S = {
   logs: [], tickets: [],
   boat: CONFIG.BOATS[0].id, fuel: null, hours: {},
-  tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tView: "open",
+  tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tView: "all",
   live: !!CONFIG.SHEET_URL.trim(), busy: false
 };
 const $ = s => document.querySelector(s);
@@ -574,15 +573,12 @@ function ticketList() {
   if (S.tView === "new") { host.innerHTML = ""; form.style.display = "block"; return; }
   form.style.display = "none";
 
-  const want = S.tView === "open" ? "open" : "done";
-  const list = S.tickets.filter(t => (t.status || "open") === want);
+  const list = S.tickets;
 
   if (!list.length) {
     host.innerHTML = `<div class="empty">
       <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-      <p>${want === "open"
-        ? "No open repairs. Anything that breaks in the field goes here — tap <strong>New</strong>."
-        : "Nothing marked repaired yet."}</p></div>`;
+      <p>No repair tickets yet. Anything that breaks in the field goes here — tap <strong>New</strong>.</p></div>`;
     return;
   }
 
@@ -621,7 +617,7 @@ function recent() {
     seen.add(l.entry);
     const same = S.logs.filter(x => x.entry === l.entry);
     out.push({ ...l, hours: same.reduce((s, x) => s + num(x.hours), 0), n: same.length });
-    if (out.length === 8) break;
+    if (out.length === 25) break;
   }
   $("#recent").innerHTML = out.length ? out.map(l => {
     const b = boatById(l.boat);
@@ -716,7 +712,7 @@ $("#save-ticket").onclick = async () => {
     if (S.live) S.tickets.unshift(t);
     ["t-title","t-part","t-desc"].forEach(id => $("#" + id).value = "");
     $("#t-by").value = "";
-    switchTicketTab("open");
+    switchTicketTab("all");
     toast("", "Ticket opened", title);
   } catch (e) { toast("bad", "Not saved", e.message); }
   finally { S.busy = false; btn.disabled = false; btn.textContent = "Open ticket"; }
