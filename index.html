@@ -609,10 +609,17 @@ function engineInputs() {
       </div>
     </div>`).join("") +
     (twin ? `<button type="button" class="mirror" id="mirror">Same as port</button>` : "");
-  if (twin) $("#mirror").onclick = () => {
-    $("#h-stbd").value = $("#h-port").value;
-    $("#h-stbd").focus(); $("#h-stbd").blur();
-  };
+  if (twin) {
+    const port = $("#h-port"), stbd = $("#h-stbd");
+    let stbdManual = false;
+    port.oninput = () => { if (!stbdManual) stbd.value = port.value; };
+    stbd.oninput = () => { stbdManual = true; };
+    $("#mirror").onclick = () => {
+      stbd.value = port.value;
+      stbdManual = false;
+      stbd.focus(); stbd.blur();
+    };
+  }
 }
 
 /* ===================== render ===================== */
