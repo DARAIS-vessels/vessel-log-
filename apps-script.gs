@@ -23,6 +23,7 @@ var LOG_HEAD = ["Timestamp","EntryID","Date","Boat","Vessel","Engine","EngineLab
                 "Hours","Operator","Activity","Location","Fuel","Notes","Crew"];
 var TIC_HEAD = ["TicketID","Created","Boat","Component","Issue","Priority",
                 "ReportedBy","Details","Auto","Status","Closed","BeforePhoto","AfterPhoto"];
+var MAINT_HEAD = ["ItemID","Boat","Item","LastDone","IntervalMonths","Notes","PartNumber","OrderLink"];
 
 function sheet_(name, head) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -68,6 +69,9 @@ function doPost(e) {
     if (p.action === "deleteTicket") return out_(deleteTicket_(p.id));
     if (p.action === "close")        return out_(setStatus_(p.id, p.status));
     if (p.action === "photo")        return out_(setPhoto_(p.id, p.which, p.mime, p.data));
+    if (p.action === "maint")        return out_(addMaint_(p.item));
+    if (p.action === "maintDone")    return out_(setMaintDone_(p.id, p.date));
+    if (p.action === "deleteMaint")  return out_(deleteMaint_(p.id));
     return out_({ ok: false, error: "Unknown action: " + p.action });
 
   } catch (err) {
@@ -85,6 +89,7 @@ function ymd_(v) {
 function load_() {
   var L = sheet_("Logs", LOG_HEAD).getDataRange().getValues().slice(1);
   var T = sheet_("Tickets", TIC_HEAD).getDataRange().getValues().slice(1);
+  var M = sheet_("Maintenance", MAINT_HEAD).getDataRange().getValues().slice(1);
 
   var logs = L.filter(function (r) { return r[1]; }).map(function (r) {
     return { entry: r[1], date: ymd_(r[2]), boat: r[3], boatName: r[4], engine: r[5],
@@ -98,7 +103,12 @@ function load_() {
              status: r[9] || "open", closed: ymd_(r[10]), beforePhoto: r[11] || "", afterPhoto: r[12] || "" };
   }).reverse();
 
-  return { ok: true, logs: logs, tickets: tickets };
+  var maintenance = M.filter(function (r) { return r[0]; }).map(function (r) {
+    return { id: String(r[0]), boat: r[1], item: r[2], lastDone: ymd_(r[3]),
+             interval: Number(r[4]) || 0, notes: r[5] || "", part: r[6] || "", link: r[7] || "" };
+  }).reverse();
+
+  return { ok: true, logs: logs, tickets: tickets, maintenance: maintenance };
 }
 
 /** Hours already banked on one engine, baseline included. */
@@ -195,6 +205,35 @@ function setPhoto_(id, which, mime, base64) {
 
 function deleteTicket_(id) {
   var sh = sheet_("Tickets", TIC_HEAD);
+  var vals = sh.getDataRange().getValues();
+  for (var i = vals.length - 1; i >= 1; i--) {
+    if (String(vals[i][0]) === String(id)) { sh.deleteRow(i + 1); return { ok: true, removed: true }; }
+  }
+  return { ok: true, removed: false };
+}
+
+function addMaint_(m) {
+  var sh = sheet_("Maintenance", MAINT_HEAD);
+  sh.appendRow([m.id, m.boat, m.item, m.lastDone, Number(m.interval) || 0,
+                m.notes || "", m.part || "", m.link || ""]);
+  return { ok: true };
+}
+
+/** Resets an item's last-done date — the "mark done" action for a recurring item. */
+function setMaintDone_(id, date) {
+  var sh = sheet_("Maintenance", MAINT_HEAD);
+  var vals = sh.getDataRange().getValues();
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]) === String(id)) {
+      sh.getRange(i + 1, 4).setValue(date);
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: "That item is no longer in the sheet." };
+}
+
+function deleteMaint_(id) {
+  var sh = sheet_("Maintenance", MAINT_HEAD);
   var vals = sh.getDataRange().getValues();
   for (var i = vals.length - 1; i >= 1; i--) {
     if (String(vals[i][0]) === String(id)) { sh.deleteRow(i + 1); return { ok: true, removed: true }; }
