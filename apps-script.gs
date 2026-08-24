@@ -20,7 +20,7 @@ var BASELINE = {
 var PHOTO_PARENT_ID = "1iqxPape_8_hUL0lb5DQNLD1W3C5fopfU";
 
 var LOG_HEAD = ["Timestamp","EntryID","Date","Boat","Vessel","Engine","EngineLabel",
-                "Hours","Operator","Activity","Location","Fuel","Notes"];
+                "Hours","Operator","Activity","Location","Fuel","Notes","Crew"];
 var TIC_HEAD = ["TicketID","Created","Boat","Component","Issue","Priority",
                 "ReportedBy","Details","Auto","Status","Closed","BeforePhoto","AfterPhoto"];
 
@@ -89,7 +89,7 @@ function load_() {
   var logs = L.filter(function (r) { return r[1]; }).map(function (r) {
     return { entry: r[1], date: ymd_(r[2]), boat: r[3], boatName: r[4], engine: r[5],
              engineLabel: r[6], hours: Number(r[7]) || 0, operator: r[8],
-             activity: r[9], location: r[10], fuel: r[11], notes: r[12] };
+             activity: r[9], location: r[10], fuel: r[11], notes: r[12], crew: r[13] || "" };
   }).reverse();
 
   var tickets = T.filter(function (r) { return r[0]; }).map(function (r) {
@@ -128,7 +128,7 @@ function addLogs_(rows) {
     var before = totalFor_(r.boat, r.engine);
 
     sh.appendRow([new Date(), r.entry, r.date, r.boat, r.boatName, r.engine, r.engineLabel,
-                  Number(r.hours) || 0, r.operator, r.activity, r.location, r.fuel, r.notes]);
+                  Number(r.hours) || 0, r.operator, r.activity, r.location, r.fuel, r.notes, r.crew || ""]);
 
     // Every service interval crossed by this entry gets its own ticket.
     var after = before + (Number(r.hours) || 0);

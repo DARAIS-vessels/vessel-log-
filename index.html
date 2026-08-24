@@ -129,6 +129,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .seg button[aria-pressed=true]{background:var(--buoy-deep);border-color:var(--buoy);color:#fff}
 .seg button[aria-pressed=true] .sub{color:#cfe4fb}
 .seg.fuel button{flex:1;font-family:var(--mono);font-size:16px;padding:14px 4px}
+.seg.crew button{flex:0 1 auto;padding:9px 13px;font-size:13px;border-radius:99px}
 
 /* ---- engine hour inputs ---- */
 .eng{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -322,6 +323,11 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
       </div>
 
       <div class="field">
+        <span class="placard">Crew <span style="color:var(--faint);text-transform:none;letter-spacing:0">— optional</span></span>
+        <div class="seg crew" id="f-crew"></div>
+      </div>
+
+      <div class="field">
         <span class="placard">Activity</span>
         <input type="text" id="f-activity" placeholder="e.g. reef transect survey">
       </div>
@@ -430,7 +436,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 /* ===================== state ===================== */
 const S = {
   logs: [], tickets: [],
-  boat: CONFIG.BOATS[0].id, fuel: null, hours: {},
+  boat: CONFIG.BOATS[0].id, fuel: null, hours: {}, crew: [],
   tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tView: "all",
   live: !!CONFIG.SHEET_URL.trim(), busy: false
 };
@@ -554,6 +560,18 @@ function segment(host, items, get, set) {
   };
 }
 
+function crewChips() {
+  const host = $("#f-crew");
+  host.innerHTML = CONFIG.OPERATORS.map(o =>
+    `<button type="button" data-v="${esc(o)}" aria-pressed="${S.crew.includes(o)}">${esc(o)}</button>`).join("");
+  host.onclick = ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    const v = b.dataset.v;
+    S.crew = S.crew.includes(v) ? S.crew.filter(x => x !== v) : [...S.crew, v];
+    b.setAttribute("aria-pressed", S.crew.includes(v));
+  };
+}
+
 function buildForm() {
   $("#f-date").value = today();
 
@@ -567,6 +585,8 @@ function buildForm() {
   const opts = CONFIG.OPERATORS.map(o => `<option>${esc(o)}</option>`).join("");
   $("#f-operator").insertAdjacentHTML("beforeend", opts);
   $("#t-by").insertAdjacentHTML("beforeend", opts);
+
+  crewChips();
 
   $("#f-location").onchange = () => {
     const other = $("#f-location-other");
@@ -798,10 +818,11 @@ $("#save-log").onclick = async () => {
   const entry = uid(), btn = $("#save-log");
   S.busy = true; btn.disabled = true; btn.textContent = "Saving…";
 
+  const crew = S.crew.join(", ");
   const rows = hrs.filter(h => h.v > 0).map(h => ({
     entry, ts: new Date().toISOString(), date, boat: b.id, boatName: b.name,
     engine: h.e.id, engineLabel: h.e.label, hours: h.v,
-    operator: op, activity: act, location: loc,
+    operator: op, crew, activity: act, location: loc,
     fuel: S.fuel, notes: $("#f-notes").value.trim()
   }));
 
@@ -814,7 +835,9 @@ $("#save-log").onclick = async () => {
     $("#f-location-other").style.display = "none";
     b.engines.forEach(e => $("#h-" + e.id).value = "");
     S.fuel = null;
+    S.crew = [];
     segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
+    crewChips();
     paint();
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (e) {
