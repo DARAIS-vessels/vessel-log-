@@ -176,11 +176,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .digit.lo{color:var(--buoy);background:var(--raise)}
 .reading .pt{font:700 30px var(--mono);color:var(--faint);align-self:flex-end;padding-bottom:8px}
 .reading .hrs{font:600 11px var(--mono);letter-spacing:.14em;color:var(--faint);margin-left:8px}
-.track{height:6px;background:var(--deck);border-radius:99px;overflow:hidden;border:1px solid var(--line-soft)}
-.track i{display:block;height:100%;background:linear-gradient(90deg,var(--buoy-deep),var(--buoy));border-radius:99px;transition:width .5s ease}
-.meter.due .track i{background:linear-gradient(90deg,#c98a1a,var(--beacon))}
 .meter.due .to-go{color:var(--beacon)}
-.ticks{display:flex;justify-content:space-between;margin-top:7px;font:600 10px var(--mono);color:var(--faint);letter-spacing:.06em}
+.ring-wrap{display:flex;justify-content:center;padding-top:2px}
+.ring{width:100px;height:100px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:9}
+.ring .rtrack{stroke:var(--deck)}
+.ring .rfill{stroke:var(--buoy);stroke-linecap:round;transition:stroke-dashoffset .5s ease}
+.meter.due .ring .rfill{stroke:var(--beacon)}
 
 /* ---- tickets ---- */
 .ticket{
@@ -606,6 +608,8 @@ function meters() {
     const due = left <= step * 0.1;
     const whole = Math.floor(t).toString().padStart(4, "0");
     const dec = Math.round((t - Math.floor(t)) * 10);
+    const r = 42, circ = 2 * Math.PI * r, frac = Math.min(1, into / step);
+    const dashOffset = circ * (1 - frac);
     return `<div class="meter ${due ? "due" : ""}">
       <div class="top">
         <span class="who">${esc(b.name)}${b.engines.length > 1 ? " · " + esc(e.label) : ""}</span>
@@ -617,8 +621,12 @@ function meters() {
         <span class="pt">.</span><span class="digit lo">${dec}</span>
         <span class="hrs">HOURS</span>
       </div>
-      <div class="track"><i style="width:${Math.max(2, (into / step) * 100).toFixed(1)}%"></i></div>
-      <div class="ticks"><span>${next - step}</span><span>SERVICE AT ${next}</span></div>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="rtrack" cx="50" cy="50" r="${r}"/>
+          <circle class="rfill" cx="50" cy="50" r="${r}" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"/>
+        </svg>
+      </div>
     </div>`;
   }).join("")).join("");
 }
