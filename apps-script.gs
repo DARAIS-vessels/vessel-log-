@@ -15,6 +15,10 @@ var BASELINE = {
   "force|stbd":  456
 };
 
+// Shared Drive folder (the one holding this Sheet) that ticket photos get
+// filed into, in their own "Vessel Log Photos" subfolder.
+var PHOTO_PARENT_ID = "1iqxPape_8_hUL0lb5DQNLD1W3C5fopfU";
+
 var LOG_HEAD = ["Timestamp","EntryID","Date","Boat","Vessel","Engine","EngineLabel",
                 "Hours","Operator","Activity","Location","Fuel","Notes"];
 var TIC_HEAD = ["TicketID","Created","Boat","Component","Issue","Priority",
@@ -39,8 +43,9 @@ function sheet_(name, head) {
 
 /** Drive folder that holds ticket photos, created once on first use. */
 function photoFolder_() {
-  var it = DriveApp.getFoldersByName("Vessel Log Photos");
-  return it.hasNext() ? it.next() : DriveApp.createFolder("Vessel Log Photos");
+  var parent = DriveApp.getFolderById(PHOTO_PARENT_ID);
+  var it = parent.getFoldersByName("Vessel Log Photos");
+  return it.hasNext() ? it.next() : parent.createFolder("Vessel Log Photos");
 }
 
 function out_(obj) {
