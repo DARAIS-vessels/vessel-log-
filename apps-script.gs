@@ -45,11 +45,12 @@ function doPost(e) {
     lock.waitLock(20000);
     var p = JSON.parse(e.postData.contents);
 
-    if (p.action === "load")      return out_(load_());
-    if (p.action === "log")       return out_(addLogs_(p.rows));
-    if (p.action === "deleteLog") return out_(deleteLogs_(p.entry));
-    if (p.action === "ticket")    return out_(addTicket_(p.ticket));
-    if (p.action === "close")     return out_(setStatus_(p.id, p.status));
+    if (p.action === "load")         return out_(load_());
+    if (p.action === "log")          return out_(addLogs_(p.rows));
+    if (p.action === "deleteLog")    return out_(deleteLogs_(p.entry));
+    if (p.action === "ticket")       return out_(addTicket_(p.ticket));
+    if (p.action === "deleteTicket") return out_(deleteTicket_(p.id));
+    if (p.action === "close")        return out_(setStatus_(p.id, p.status));
     return out_({ ok: false, error: "Unknown action: " + p.action });
 
   } catch (err) {
@@ -151,6 +152,15 @@ function addTicket_(t) {
   sh.appendRow([t.id, t.created, t.boat, t.part, t.title, t.priority,
                 t.by, t.desc, t.auto === true, t.status || "open", t.closed || ""]);
   return { ok: true };
+}
+
+function deleteTicket_(id) {
+  var sh = sheet_("Tickets", TIC_HEAD);
+  var vals = sh.getDataRange().getValues();
+  for (var i = vals.length - 1; i >= 1; i--) {
+    if (String(vals[i][0]) === String(id)) { sh.deleteRow(i + 1); return { ok: true, removed: true }; }
+  }
+  return { ok: true, removed: false };
 }
 
 function setStatus_(id, status) {

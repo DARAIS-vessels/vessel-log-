@@ -225,13 +225,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .row .b strong{font-weight:600;font-size:14px}
 .row .b span{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
 .row .h{font:700 15px var(--mono);color:var(--buoy);white-space:nowrap;padding-top:1px}
-.row .del{
+.del{
   flex:0 0 auto;width:36px;height:36px;display:grid;place-items:center;
   background:none;border:1px solid var(--line-soft);border-radius:9px;color:var(--faint);
   cursor:pointer;transition:.15s;
 }
-.row .del:hover,.row .del:active{color:var(--fault);border-color:var(--fault)}
-.row .del:disabled{opacity:.4;cursor:default}
+.del:hover,.del:active{color:var(--fault);border-color:var(--fault)}
+.del:disabled{opacity:.4;cursor:default}
 
 /* ---- bottom nav ---- */
 nav{
@@ -486,6 +486,7 @@ function demo(p) {
     return { ok: true, milestones: made };
   }
   if (p.action === "deleteLog") { S.logs = S.logs.filter(l => l.entry !== p.entry); return { ok: true }; }
+  if (p.action === "deleteTicket") { S.tickets = S.tickets.filter(t => t.id !== p.id); return { ok: true }; }
   if (p.action === "ticket") { S.tickets.unshift(p.ticket); return { ok: true }; }
   if (p.action === "close") {
     const t = S.tickets.find(x => x.id === p.id);
@@ -632,6 +633,9 @@ function ticketList() {
         <button class="btn sm ${t.status === "done" ? "ghost" : ""}" data-close="${esc(t.id)}" data-to="${t.status === "done" ? "open" : "done"}">
           ${t.status === "done" ? "Reopen" : "Mark repaired"}
         </button>
+        <button type="button" class="del" data-delete="${esc(t.id)}" aria-label="Delete this ticket">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+        </button>
       </div>
     </div>`;
   }).join("");
@@ -644,6 +648,17 @@ function ticketList() {
       if (t) { t.status = btn.dataset.to; t.closed = btn.dataset.to === "done" ? today() : ""; }
       paint();
     } catch (e) { btn.disabled = false; toast("bad", "Didn't save", e.message); }
+  });
+
+  host.querySelectorAll("[data-delete]").forEach(btn => btn.onclick = async () => {
+    if (!confirm("Delete this ticket? This can't be undone.")) return;
+    btn.disabled = true;
+    try {
+      await api({ action: "deleteTicket", id: btn.dataset.delete });
+      S.tickets = S.tickets.filter(x => x.id !== btn.dataset.delete);
+      paint();
+      toast("", "Deleted", "That ticket was removed.");
+    } catch (e) { btn.disabled = false; toast("bad", "Didn't delete", e.message); }
   });
 }
 
