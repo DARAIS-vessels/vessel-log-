@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vessel Log</title>
+<title>S.L.I.P. — Ship Ledger Information Portal</title>
 <meta name="theme-color" content="#061224">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Vessel Log">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1e38'/%3E%3Ccircle cx='90' cy='90' r='58' fill='none' stroke='%234d9bf0' stroke-width='9'/%3E%3Ccircle cx='90' cy='90' r='9' fill='%234d9bf0'/%3E%3Cpath d='M90 32v18M90 130v18M32 90h18M130 90h18' stroke='%234d9bf0' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-title" content="S.L.I.P.">
+<link rel="icon" href="assets/logo-icon.png">
+<link rel="apple-touch-icon" href="assets/logo-icon.png">
 
 <!-- =====================================================================
      CONFIG — edit this block only. Everything below it is machinery.
@@ -77,7 +78,7 @@ header{
   padding:calc(12px + env(safe-area-inset-top)) 18px 12px;
   display:flex;align-items:center;gap:12px;
 }
-header .mark{width:26px;height:26px;flex:none}
+header .mark{height:28px;width:auto;flex:none}
 header h1{font-size:16px;letter-spacing:.01em}
 .status{
   margin-left:auto;display:flex;align-items:center;gap:6px;
@@ -275,12 +276,8 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 <body>
 
 <header>
-  <svg class="mark" viewBox="0 0 180 180" aria-hidden="true">
-    <circle cx="90" cy="90" r="58" fill="none" stroke="#57a5f5" stroke-width="10"/>
-    <circle cx="90" cy="90" r="10" fill="#57a5f5"/>
-    <path d="M90 32v18M90 130v18M32 90h18M130 90h18" stroke="#57a5f5" stroke-width="10" stroke-linecap="round"/>
-  </svg>
-  <h1>Vessel Log</h1>
+  <img class="mark" src="assets/logo-emblem.png" alt="DAR">
+  <h1>S.L.I.P.</h1>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Checking</span></div>
 </header>
 
