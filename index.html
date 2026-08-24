@@ -318,8 +318,8 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
       </div>
 
       <div class="field">
-        <span class="placard">Operator</span>
-        <select id="f-operator"><option value="">Select operator</option></select>
+        <span class="placard">Captain</span>
+        <select id="f-operator"><option value="">Select captain</option></select>
       </div>
 
       <div class="field">
@@ -808,7 +808,7 @@ $("#save-log").onclick = async () => {
   const hrs = b.engines.map(e => ({ e, v: num($("#h-" + e.id).value) }));
   const miss = [];
   if (!date) miss.push("a date");
-  if (!op) miss.push("an operator");
+  if (!op) miss.push("a captain");
   if (!act) miss.push("an activity");
   if (!hrs.some(h => h.v > 0)) miss.push("engine hours");
   if (!S.fuel) miss.push("a fuel level");
