@@ -97,7 +97,16 @@ function addLogs_(rows) {
   var sh = sheet_("Logs", LOG_HEAD);
   var made = [];
 
+  // Rows already on the sheet for this batch's entry IDs, so a retried
+  // submission (e.g. after a dropped connection) can't double-log hours.
+  var existing = sh.getDataRange().getValues().slice(1);
+
   rows.forEach(function (r) {
+    var already = existing.some(function (row) {
+      return String(row[1]) === String(r.entry) && row[5] === r.engine;
+    });
+    if (already) return;
+
     var before = totalFor_(r.boat, r.engine);
 
     sh.appendRow([new Date(), r.entry, r.date, r.boat, r.boatName, r.engine, r.engineLabel,

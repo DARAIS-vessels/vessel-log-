@@ -424,16 +424,41 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 /* ===================== transport ===================== */
+async function fetchOnce(payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  let r;
+  try {
+    r = await fetch(CONFIG.SHEET_URL, {
+      method: "POST", redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+  const d = await r.json();
+  if (!d.ok) {
+    const err = new Error(d.error || "The sheet rejected that entry.");
+    err.serverRejected = true; // a real answer came back — retrying would just fail the same way
+    throw err;
+  }
+  return d;
+}
+
+/* Retries only on a genuine network drop/timeout, never on a server-side rejection. */
 async function api(payload) {
   if (!S.live) return demo(payload);
-  const r = await fetch(CONFIG.SHEET_URL, {
-    method: "POST", redirect: "follow",
-    headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
-    body: JSON.stringify(payload)
-  });
-  const d = await r.json();
-  if (!d.ok) throw new Error(d.error || "The sheet rejected that entry.");
-  return d;
+  const attempts = 3;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fetchOnce(payload);
+    } catch (e) {
+      if (e.serverRejected || i === attempts) throw e;
+      await new Promise(res => setTimeout(res, 1000 * i));
+    }
+  }
 }
 
 /* In-memory stand-in so the app is fully usable before the sheet is wired up. */
