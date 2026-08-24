@@ -201,6 +201,17 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .tag.auto{background:rgba(242,177,52,.13);color:var(--beacon);border-color:rgba(242,177,52,.35)}
 .ticket .meta{font:500 11px var(--mono);color:var(--faint);letter-spacing:.05em;margin-bottom:8px}
 .ticket p{margin:0 0 12px;font-size:14px;color:var(--mute);line-height:1.5}
+.photos{display:flex;gap:8px;margin-bottom:12px}
+.photo-slot{
+  width:64px;height:64px;flex:0 0 auto;border-radius:9px;overflow:hidden;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:var(--deck);border:1px dashed var(--line);color:var(--faint);transition:.15s;
+}
+.photo-slot span{font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.photo-slot:hover{border-color:var(--buoy);color:var(--buoy)}
+.photo-slot.filled{border-style:solid;border-color:var(--line-soft);padding:0}
+.photo-slot.filled img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-slot.busy{opacity:.5;pointer-events:none}
 .ticket .acts{display:flex;gap:8px;align-items:center}
 
 .tabs2{display:flex;gap:8px;margin-bottom:16px}
@@ -487,6 +498,7 @@ function demo(p) {
   }
   if (p.action === "deleteLog") { S.logs = S.logs.filter(l => l.entry !== p.entry); return { ok: true }; }
   if (p.action === "deleteTicket") { S.tickets = S.tickets.filter(t => t.id !== p.id); return { ok: true }; }
+  if (p.action === "photo") { return { ok: true, url: "data:" + p.mime + ";base64," + p.data }; }
   if (p.action === "ticket") { S.tickets.unshift(p.ticket); return { ok: true }; }
   if (p.action === "close") {
     const t = S.tickets.find(x => x.id === p.id);
@@ -629,6 +641,17 @@ function ticketList() {
       </div>
       <div class="meta">${esc(b ? b.name : t.boat)}${t.part ? " · " + esc(t.part) : ""} · ${esc(t.created)} · ${esc(t.by)}</div>
       ${t.desc ? `<p>${esc(t.desc)}</p>` : ""}
+      <div class="photos">
+        ${["before","after"].map(which => {
+          const url = which === "before" ? t.beforePhoto : t.afterPhoto;
+          return `<label class="photo-slot ${url ? "filled" : ""}">
+            ${url ? `<img src="${esc(url)}" alt="${which} photo">` : `
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.2"/></svg>
+              <span>${which === "before" ? "Before" : "After"}</span>`}
+            <input type="file" accept="image/*" capture="environment" data-photo="${esc(t.id)}" data-which="${which}" hidden>
+          </label>`;
+        }).join("")}
+      </div>
       <div class="acts">
         <button class="btn sm ${t.status === "done" ? "ghost" : ""}" data-close="${esc(t.id)}" data-to="${t.status === "done" ? "open" : "done"}">
           ${t.status === "done" ? "Reopen" : "Mark repaired"}
@@ -659,6 +682,49 @@ function ticketList() {
       paint();
       toast("", "Deleted", "That ticket was removed.");
     } catch (e) { btn.disabled = false; toast("bad", "Didn't delete", e.message); }
+  });
+
+  host.querySelectorAll("[data-photo]").forEach(input => input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const id = input.dataset.photo, which = input.dataset.which;
+    const slot = input.closest(".photo-slot");
+    slot.classList.add("busy");
+    try {
+      const data = await compressImage(file, 1280, 0.72);
+      const d = await api({ action: "photo", id, which, mime: "image/jpeg", data });
+      const t = S.tickets.find(x => x.id === id);
+      if (t) t[which === "before" ? "beforePhoto" : "afterPhoto"] = d.url;
+      paint();
+    } catch (e) {
+      slot.classList.remove("busy");
+      toast("bad", "Photo didn't upload", e.message);
+    }
+  });
+}
+
+/** Resizes/compresses an image file in the browser; returns base64 (no data: prefix). */
+function compressImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that photo."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't read that photo."));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 

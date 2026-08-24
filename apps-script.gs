@@ -18,7 +18,7 @@ var BASELINE = {
 var LOG_HEAD = ["Timestamp","EntryID","Date","Boat","Vessel","Engine","EngineLabel",
                 "Hours","Operator","Activity","Location","Fuel","Notes"];
 var TIC_HEAD = ["TicketID","Created","Boat","Component","Issue","Priority",
-                "ReportedBy","Details","Auto","Status","Closed"];
+                "ReportedBy","Details","Auto","Status","Closed","BeforePhoto","AfterPhoto"];
 
 function sheet_(name, head) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -28,8 +28,19 @@ function sheet_(name, head) {
     sh.appendRow(head);
     sh.getRange(1, 1, 1, head.length).setFontWeight("bold").setBackground("#0c1e38").setFontColor("#ffffff");
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < head.length) {
+    // Sheet predates a column added since (e.g. BeforePhoto/AfterPhoto) — extend the header in place.
+    var missing = head.slice(sh.getLastColumn());
+    sh.getRange(1, sh.getLastColumn() + 1, 1, missing.length).setValues([missing])
+      .setFontWeight("bold").setBackground("#0c1e38").setFontColor("#ffffff");
   }
   return sh;
+}
+
+/** Drive folder that holds ticket photos, created once on first use. */
+function photoFolder_() {
+  var it = DriveApp.getFoldersByName("Vessel Log Photos");
+  return it.hasNext() ? it.next() : DriveApp.createFolder("Vessel Log Photos");
 }
 
 function out_(obj) {
@@ -51,6 +62,7 @@ function doPost(e) {
     if (p.action === "ticket")       return out_(addTicket_(p.ticket));
     if (p.action === "deleteTicket") return out_(deleteTicket_(p.id));
     if (p.action === "close")        return out_(setStatus_(p.id, p.status));
+    if (p.action === "photo")        return out_(setPhoto_(p.id, p.which, p.mime, p.data));
     return out_({ ok: false, error: "Unknown action: " + p.action });
 
   } catch (err) {
@@ -78,7 +90,7 @@ function load_() {
   var tickets = T.filter(function (r) { return r[0]; }).map(function (r) {
     return { id: String(r[0]), created: ymd_(r[1]), boat: r[2], part: r[3], title: r[4],
              priority: r[5], by: r[6], desc: r[7], auto: r[8] === true || r[8] === "TRUE" || r[8] === "Yes",
-             status: r[9] || "open", closed: ymd_(r[10]) };
+             status: r[9] || "open", closed: ymd_(r[10]), beforePhoto: r[11] || "", afterPhoto: r[12] || "" };
   }).reverse();
 
   return { ok: true, logs: logs, tickets: tickets };
@@ -150,8 +162,27 @@ function addTicket_(t) {
   if (ids.indexOf(String(t.id)) !== -1) return { ok: true, duplicate: true };  // service ticket already exists
 
   sh.appendRow([t.id, t.created, t.boat, t.part, t.title, t.priority,
-                t.by, t.desc, t.auto === true, t.status || "open", t.closed || ""]);
+                t.by, t.desc, t.auto === true, t.status || "open", t.closed || "", "", ""]);
   return { ok: true };
+}
+
+/** Saves a before/after photo to Drive and records its URL on the ticket row. */
+function setPhoto_(id, which, mime, base64) {
+  var sh = sheet_("Tickets", TIC_HEAD);
+  var vals = sh.getDataRange().getValues();
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]) === String(id)) {
+      var bytes = Utilities.base64Decode(base64);
+      var blob = Utilities.newBlob(bytes, mime, id + "-" + which + ".jpg");
+      var file = photoFolder_().createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      var url = "https://drive.google.com/uc?export=view&id=" + file.getId();
+      var col = which === "before" ? 12 : 13;
+      sh.getRange(i + 1, col).setValue(url);
+      return { ok: true, url: url };
+    }
+  }
+  return { ok: false, error: "That ticket is no longer in the sheet." };
 }
 
 function deleteTicket_(id) {
