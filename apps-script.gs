@@ -181,7 +181,10 @@ function setPhoto_(id, which, mime, base64) {
       var blob = Utilities.newBlob(bytes, mime, id + "-" + which + ".jpg");
       var file = photoFolder_().createFile(blob);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      var url = "https://drive.google.com/uc?export=view&id=" + file.getId();
+      // uc?export=view often redirects to an HTML viewer instead of raw image
+      // bytes when hotlinked in <img> — the thumbnail endpoint serves the
+      // actual image reliably.
+      var url = "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w1000";
       var col = which === "before" ? 12 : 13;
       sh.getRange(i + 1, col).setValue(url);
       return { ok: true, url: url };
