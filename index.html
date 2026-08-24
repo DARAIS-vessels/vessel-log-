@@ -162,27 +162,25 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 /* ---- SIGNATURE: the hour meter ---- */
 .meter{
   background:var(--hull);border:1px solid var(--line-soft);border-radius:16px;
-  padding:16px 18px 18px;margin-bottom:12px;position:relative;overflow:hidden;
+  padding:22px 18px;margin-bottom:12px;position:relative;overflow:hidden;
 }
-.meter .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
-.meter .who{font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
-.meter .to-go{font:600 11px var(--mono);letter-spacing:.06em;color:var(--faint)}
-.reading{display:flex;align-items:baseline;gap:3px;margin-bottom:14px}
-.digit{
-  font:700 34px/1 var(--mono);color:var(--ink);background:var(--deck);
-  border:1px solid var(--line);border-radius:6px;padding:8px 6px;min-width:30px;text-align:center;
-  font-variant-numeric:tabular-nums;
-}
-.digit.lo{color:var(--buoy);background:var(--raise)}
-.reading .pt{font:700 30px var(--mono);color:var(--faint);align-self:flex-end;padding-bottom:8px}
-.reading .hrs{font:600 11px var(--mono);letter-spacing:.14em;color:var(--faint);margin-left:8px}
-.meter.due .to-go{color:var(--beacon)}
-.ring-wrap{display:flex;justify-content:center;padding-top:2px}
-.ring{width:100px;height:100px;transform:rotate(-90deg)}
-.ring circle{fill:none;stroke-width:9}
+.ring-wrap{position:relative;width:min(240px,100%);aspect-ratio:1;margin:0 auto}
+.ring{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:8}
 .ring .rtrack{stroke:var(--deck)}
 .ring .rfill{stroke:var(--buoy);stroke-linecap:round;transition:stroke-dashoffset .5s ease}
 .meter.due .ring .rfill{stroke:var(--beacon)}
+.ring-info{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:0 20px;text-align:center;
+}
+.ring-info .who{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.ring-info .reading{font:700 32px var(--mono);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.ring-info .reading .lo{color:var(--buoy)}
+.meter.due .ring-info .reading .lo{color:var(--beacon)}
+.ring-info .hrs{font:600 10px var(--mono);letter-spacing:.14em;color:var(--faint)}
+.ring-info .to-go{font:600 11px var(--mono);letter-spacing:.04em;color:var(--faint);margin-top:4px}
+.meter.due .ring-info .to-go{color:var(--beacon)}
 
 /* ---- tickets ---- */
 .ticket{
@@ -611,21 +609,17 @@ function meters() {
     const r = 42, circ = 2 * Math.PI * r, frac = Math.min(1, into / step);
     const dashOffset = circ * (1 - frac);
     return `<div class="meter ${due ? "due" : ""}">
-      <div class="top">
-        <span class="who">${esc(b.name)}${b.engines.length > 1 ? " · " + esc(e.label) : ""}</span>
-        <span class="to-go">${left.toFixed(1)} h to ${next}</span>
-      </div>
-      <div class="reading">
-        ${whole.split("").map((d, i) =>
-          `<span class="digit${i === whole.length - 1 ? " lo" : ""}">${d}</span>`).join("")}
-        <span class="pt">.</span><span class="digit lo">${dec}</span>
-        <span class="hrs">HOURS</span>
-      </div>
       <div class="ring-wrap">
         <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
           <circle class="rtrack" cx="50" cy="50" r="${r}"/>
           <circle class="rfill" cx="50" cy="50" r="${r}" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"/>
         </svg>
+        <div class="ring-info">
+          <span class="who">${esc(b.name)}${b.engines.length > 1 ? " · " + esc(e.label) : ""}</span>
+          <span class="reading">${whole}<span class="lo">.${dec}</span></span>
+          <span class="hrs">HOURS</span>
+          <span class="to-go">${left.toFixed(1)} h to ${next}</span>
+        </div>
       </div>
     </div>`;
   }).join("")).join("");
