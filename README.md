@@ -1,10 +1,15 @@
-# Vessel Log
+# AIS Vessel Ledger
 
-Engine hour and repair logging for a small research vessel fleet. A single-file
-PWA that saves to a Google Sheet. No sign-in, no build step, free to run.
+Engine hour, maintenance, and repair logging for a small research vessel fleet.
+A single-file PWA that saves to a Google Sheet. No sign-in, no build step, free
+to run.
+
+Live at **https://darais-vessels.github.io/vessel-log-/**
 
 Operators log a trip in under a minute from their phone. Engine hours accrue per
-engine, and a service ticket opens automatically every 100 hours.
+engine, a service ticket opens automatically every 100 hours, and calendar-based
+maintenance (batteries, zincs, safety gear) is tracked separately with due dates.
+Repair tickets support before/after photos, filed to a Shared Drive folder.
 
 ## Fleet
 
@@ -17,6 +22,7 @@ engine, and a service ticket opens automatically every 100 hours.
 |---|---|
 | `index.html` | The entire app |
 | `apps-script.gs` | Google Sheets backend — paste into the sheet's script editor |
+| `assets/` | Logo images for the header and home-screen icon |
 | `SETUP.md` | Deployment steps |
 | `CLAUDE.md` | Project context for Claude Code |
 
@@ -34,4 +40,4 @@ block at the top of `index.html`. Adding a boat is four lines.
 
 ## Status
 
-Demo mode. Not yet deployed.
+Live and in use. See `CLAUDE.md` for full current state and architecture notes.

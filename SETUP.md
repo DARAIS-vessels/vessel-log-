@@ -72,6 +72,14 @@ Hours are logged **per engine** — one sheet row each, so the Force writes two 
 
 ## Known limits
 
-- Anyone with the URL can log entries and read data. Fine for an internal tool with no sign-in; don't put anything sensitive in it.
-- No photo attachments yet.
+- Anyone with the URL can log entries and read data — same for anyone with a photo's link. Fine for an internal tool with no sign-in; don't put anything sensitive in it.
 - No offline queue — an entry submitted with no signal fails and says so. Operators log at the dock or back at the lab.
+
+## If you add ticket photos
+
+The backend files photos to a Drive folder it creates itself the first time
+someone uploads one. The first time the script actually touches Drive, Google
+won't prompt for that permission automatically from a redeploy — run any
+function that reaches `photoFolder_()` once, manually, in the Apps Script
+editor (Run ▷), and approve the Drive permission when it asks. After that,
+the deployed web app has it too.
