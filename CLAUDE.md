@@ -76,7 +76,7 @@ auto-follow.
 ## Crew roster
 
 Jesse B., Kate G., Andrew G., Landon K., Sydney C., Lev G., Julio L., Paige W.,
-Nicole M., Lauren K.
+Nicole M., Lauren K., Elizabeth M., Hendrikje J.
 
 `CONFIG.OPERATORS` — the name is legacy, but it feeds **both** the single-select
 Captain dropdown and the multi-select Crew chips on the Log tab, so don't
