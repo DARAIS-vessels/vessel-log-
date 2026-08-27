@@ -119,9 +119,23 @@ in-memory so the app is fully usable before the sheet is wired up. Three views
 `meters()`, `ticketList()`, `maintList()`, `recent()`, `badge()`.
 
 **apps-script.gs** — `doPost` actions: `load`, `log`, `deleteLog`, `ticket`,
-`deleteTicket`, `close`, `photo`, `maint`, `maintDone`, `deleteMaint`. Three
-sheet tabs — `Logs`, `Tickets`, `Maintenance` — each created on first write,
-and `sheet_()` also self-extends a tab's header row if `*_HEAD` has grown
+`deleteTicket`, `close`, `photo`, `maint`, `maintDone`, `deleteMaint`.
+
+Engine hours live in **one tab per boat** (`Logs - Boston Whaler`,
+`Logs - Force`, `Logs - Barge`), by owner request — one combined `Logs` tab got
+unwieldy once there were three boats. `BOAT_TABS` maps boat id → tab name and
+`logSheet_()` creates a tab on first write, but reads go through
+`allLogSheets_()`, which matches **any** tab named `Logs - *` rather than
+consulting `BOAT_TABS` — so a tab for a renamed or retired boat is still
+counted instead of silently vanishing from totals. `load_()` concatenates every
+tab then sorts by Timestamp descending (the old single-tab code just reversed
+append order, which no longer holds across tabs). `migrateLogsToBoatTabs()` is
+the one-time splitter for the original `Logs` tab: idempotent, and deliberately
+does *not* delete the old tab — a human checks it and deletes it by hand.
+
+`Tickets` and `Maintenance` remain single tabs — the owner was asked and wants
+maintenance kept in one place for now. Every tab is created on first write, and
+`sheet_()` also self-extends a tab's header row if `*_HEAD` has grown
 since (e.g. `Crew`, `BeforePhoto`/`AfterPhoto` were added to existing sheets
 this way) — new columns always go at the **end** of a `*_HEAD` array, never
 inserted in the middle, or existing rows' data shifts out of alignment with

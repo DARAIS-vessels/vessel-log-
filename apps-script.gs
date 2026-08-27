@@ -44,6 +44,29 @@ function sheet_(name, head) {
   return sh;
 }
 
+// Engine hours live in one tab per boat. Add a line here when you add a boat;
+// anything not listed still works, it just gets a tab named after its id.
+var BOAT_TABS = {
+  "whaler": "Logs - Boston Whaler",
+  "force":  "Logs - Force",
+  "barge":  "Logs - Barge"
+};
+
+function logTabName_(boatId) { return BOAT_TABS[boatId] || ("Logs - " + boatId); }
+
+function logSheet_(boatId) { return sheet_(logTabName_(boatId), LOG_HEAD); }
+
+/**
+ * Every per-boat log tab that exists. Matched by name prefix rather than by
+ * BOAT_TABS so a tab for a retired or renamed boat is still read, never
+ * silently dropped from totals.
+ */
+function allLogSheets_() {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (sh) {
+    return sh.getName().indexOf("Logs - ") === 0;
+  });
+}
+
 /** Drive folder that holds ticket photos, created once on first use. */
 function photoFolder_() {
   var parent = DriveApp.getFolderById(PHOTO_PARENT_ID);
@@ -89,15 +112,27 @@ function ymd_(v) {
 }
 
 function load_() {
-  var L = sheet_("Logs", LOG_HEAD).getDataRange().getValues().slice(1);
+  var L = [];
+  allLogSheets_().forEach(function (sh) {
+    L = L.concat(sh.getDataRange().getValues().slice(1));
+  });
   var T = sheet_("Tickets", TIC_HEAD).getDataRange().getValues().slice(1);
   var M = sheet_("Maintenance", MAINT_HEAD).getDataRange().getValues().slice(1);
 
-  var logs = L.filter(function (r) { return r[1]; }).map(function (r) {
+  // Rows arrive grouped by tab, so sort the fleet back into one newest-first
+  // stream rather than reversing per-sheet append order.
+  L = L.filter(function (r) { return r[1]; });
+  L.sort(function (a, b) {
+    var ta = a[0] instanceof Date ? a[0].getTime() : 0;
+    var tb = b[0] instanceof Date ? b[0].getTime() : 0;
+    return tb - ta;
+  });
+
+  var logs = L.map(function (r) {
     return { entry: r[1], date: ymd_(r[2]), boat: r[3], boatName: r[4], engine: r[5],
              engineLabel: r[6], hours: Number(r[7]) || 0, operator: r[8],
              activity: r[9], location: r[10], fuel: r[11], notes: r[12], crew: r[13] || "" };
-  }).reverse();
+  });
 
   var tickets = T.filter(function (r) { return r[0]; }).map(function (r) {
     return { id: String(r[0]), created: ymd_(r[1]), boat: r[2], part: r[3], title: r[4],
@@ -115,7 +150,7 @@ function load_() {
 
 /** Hours already banked on one engine, baseline included. */
 function totalFor_(boat, engine) {
-  var rows = sheet_("Logs", LOG_HEAD).getDataRange().getValues().slice(1);
+  var rows = logSheet_(boat).getDataRange().getValues().slice(1);
   var sum = BASELINE[boat + "|" + engine] || 0;
   for (var i = 0; i < rows.length; i++) {
     if (rows[i][3] === boat && rows[i][5] === engine) sum += Number(rows[i][7]) || 0;
@@ -124,15 +159,18 @@ function totalFor_(boat, engine) {
 }
 
 function addLogs_(rows) {
-  var sh = sheet_("Logs", LOG_HEAD);
   var made = [];
 
-  // Rows already on the sheet for this batch's entry IDs, so a retried
-  // submission (e.g. after a dropped connection) can't double-log hours.
-  var existing = sh.getDataRange().getValues().slice(1);
+  // Rows already on each boat's tab, so a retried submission (e.g. after a
+  // dropped connection) can't double-log hours. Read once per boat, not once
+  // per row.
+  var existingByBoat = {};
 
   rows.forEach(function (r) {
-    var already = existing.some(function (row) {
+    var sh = logSheet_(r.boat);
+    if (!existingByBoat[r.boat]) existingByBoat[r.boat] = sh.getDataRange().getValues().slice(1);
+
+    var already = existingByBoat[r.boat].some(function (row) {
       return String(row[1]) === String(r.entry) && row[5] === r.engine;
     });
     if (already) return;
@@ -162,15 +200,47 @@ function addLogs_(rows) {
   return { ok: true, milestones: made };
 }
 
-/** Removes every row (one per engine) sharing this entry ID. */
+/** Removes every row (one per engine) sharing this entry ID, across all boat tabs. */
 function deleteLogs_(entry) {
-  var sh = sheet_("Logs", LOG_HEAD);
-  var vals = sh.getDataRange().getValues();
   var removed = 0;
-  for (var i = vals.length - 1; i >= 1; i--) {
-    if (String(vals[i][1]) === String(entry)) { sh.deleteRow(i + 1); removed++; }
-  }
+  allLogSheets_().forEach(function (sh) {
+    var vals = sh.getDataRange().getValues();
+    for (var i = vals.length - 1; i >= 1; i--) {
+      if (String(vals[i][1]) === String(entry)) { sh.deleteRow(i + 1); removed++; }
+    }
+  });
   return { ok: true, removed: removed };
+}
+
+/**
+ * One-time migration: splits the original single "Logs" tab into per-boat
+ * tabs. Run it once from the editor (select migrateLogsToBoatTabs, press Run),
+ * check the new tabs look right, then delete the old "Logs" tab by hand — this
+ * deliberately doesn't delete it for you. Safe to run more than once: rows
+ * already copied are skipped, not duplicated.
+ */
+function migrateLogsToBoatTabs() {
+  var old = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Logs");
+  if (!old) return "No old 'Logs' tab found — nothing to migrate.";
+
+  var rows = old.getDataRange().getValues().slice(1).filter(function (r) { return r[1]; });
+  var moved = 0, skipped = 0;
+
+  rows.forEach(function (r) {
+    var sh = logSheet_(r[3]);
+    var existing = sh.getDataRange().getValues().slice(1);
+    var already = existing.some(function (x) {
+      return String(x[1]) === String(r[1]) && x[5] === r[5];
+    });
+    if (already) { skipped++; return; }
+    sh.appendRow(r);
+    moved++;
+  });
+
+  var msg = "Moved " + moved + " row(s); skipped " + skipped + " already present. " +
+            "Check the new 'Logs - ...' tabs, then delete the old 'Logs' tab yourself.";
+  Logger.log(msg);
+  return msg;
 }
 
 function addTicket_(t) {
