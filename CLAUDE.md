@@ -19,6 +19,11 @@ Deployed and working, not demo mode:
   repo `DARAIS-vessels/vessel-log-`)
 - **Backend:** Google Apps Script web app, `Execute as: Me`, `Anyone` access —
   worked fine at this institution, no fallback needed.
+- **Per-boat log tabs are live and migrated** (Aug 2026). Verified against the
+  deployed backend: writes route to the right tab, a retried submit doesn't
+  duplicate, and delete sweeps every tab. If the original combined `Logs` tab
+  is still sitting in the sheet it is inert — the code only reads `Logs - *` —
+  but it should be deleted once its rows are confirmed copied.
 - **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456,
   `barge|port` 100, `barge|stbd` 100 (must match between `BASELINE` in the
   script and `baselineHours` in `index.html` — see invariants below). **The
