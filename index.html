@@ -137,15 +137,18 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .seg.boats button{flex:0 1 calc(50% - 4px)}
 .seg.crew{margin-top:8px}
 .seg.crew button{flex:0 1 auto;padding:9px 13px;font-size:13px;border-radius:99px}
+/* Optional field, so it sits to content width rather than spanning the form.
+   min-height keeps a 44px tap target at the smaller type size. */
 .picker{
-  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
-  background:var(--deck);color:var(--ink);border:1px solid var(--line);border-radius:11px;
-  padding:14px 14px;font:500 15px var(--sans);cursor:pointer;text-align:left;transition:.15s;
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;max-width:100%;
+  background:var(--deck);color:var(--ink);border:1px solid var(--line);border-radius:10px;
+  padding:0 13px;font:500 14px var(--sans);cursor:pointer;text-align:left;transition:.15s;
 }
+.picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .picker:hover{border-color:var(--buoy)}
 .picker svg{flex:none;color:var(--faint);transition:transform .18s}
 .picker[aria-expanded=true] svg{transform:rotate(180deg)}
-.picker.empty{color:var(--faint)}
+.picker.unset{color:var(--faint)}   /* not .empty — that's the empty-state panel class */
 
 /* ---- engine hour inputs ---- */
 .eng{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -637,7 +640,7 @@ function crewSummary() {
   $("#crew-summary").textContent = n
     ? (n <= 2 ? S.crew.join(", ") : `${S.crew.slice(0, 2).join(", ")} +${n - 2}`)
     : "Tap to add crew";
-  btn.classList.toggle("empty", !n);
+  btn.classList.toggle("unset", !n);
 }
 
 function crewChips() {
