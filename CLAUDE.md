@@ -20,9 +20,12 @@ Deployed and working, not demo mode:
 - **Backend:** Google Apps Script web app, `Execute as: Me`, `Anyone` access —
   worked fine at this institution, no fallback needed.
 - **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456,
-  `barge|port` 0, `barge|stbd` 0 (must match between `BASELINE` in the script
-  and `baselineHours` in `index.html` — see invariants below). The barge's
-  baselines are placeholders — ask the owner for its real meter readings.
+  `barge|port` 100, `barge|stbd` 100 (must match between `BASELINE` in the
+  script and `baselineHours` in `index.html` — see invariants below). **The
+  barge's 100s are a stand-in** — the owner didn't have its real meter
+  readings to hand and picked a round number. Swap in the true readings when
+  they turn up; until then its next-service estimate is fiction, and changing
+  the baseline later shifts every milestone for those two engines.
 - **Photos** file into a Shared Drive folder (`PHOTO_PARENT_ID` in
   `apps-script.gs`), not the developer's personal Drive — a Workspace admin
   policy blocked moving a My-Drive folder into the Shared Drive after the
