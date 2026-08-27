@@ -32,7 +32,11 @@ const CONFIG = {
 
     { id: "force",  name: "Force", sub: "22′ · twin Yamaha",
       engines: [ { id: "port", label: "Port",      baselineHours: 456 },
-                 { id: "stbd", label: "Starboard", baselineHours: 456 } ] }
+                 { id: "stbd", label: "Starboard", baselineHours: 456 } ] },
+
+    { id: "barge",  name: "Barge", sub: "30′ · twin Honda 50",
+      engines: [ { id: "port", label: "Port",      baselineHours: 0 },
+                 { id: "stbd", label: "Starboard", baselineHours: 0 } ] }
   ],
 
   // 4. Operators, in the order you want them listed.
@@ -130,7 +134,18 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .seg button[aria-pressed=true]{background:var(--buoy-deep);border-color:var(--buoy);color:#fff}
 .seg button[aria-pressed=true] .sub{color:#cfe4fb}
 .seg.fuel button{flex:1;font-family:var(--mono);font-size:16px;padding:14px 4px}
+.seg.boats button{flex:0 1 calc(50% - 4px)}
+.seg.crew{margin-top:8px}
 .seg.crew button{flex:0 1 auto;padding:9px 13px;font-size:13px;border-radius:99px}
+.picker{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--deck);color:var(--ink);border:1px solid var(--line);border-radius:11px;
+  padding:14px 14px;font:500 15px var(--sans);cursor:pointer;text-align:left;transition:.15s;
+}
+.picker:hover{border-color:var(--buoy)}
+.picker svg{flex:none;color:var(--faint);transition:transform .18s}
+.picker[aria-expanded=true] svg{transform:rotate(180deg)}
+.picker.empty{color:var(--faint)}
 
 /* ---- engine hour inputs ---- */
 .eng{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -318,7 +333,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 
       <div class="field">
         <span class="placard">Vessel</span>
-        <div class="seg" id="f-boat"></div>
+        <div class="seg boats" id="f-boat"></div>
       </div>
 
       <div class="field">
@@ -333,7 +348,11 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 
       <div class="field">
         <span class="placard">Crew <span style="color:var(--faint);text-transform:none;letter-spacing:0">— optional</span></span>
-        <div class="seg crew" id="f-crew"></div>
+        <button type="button" class="picker" id="crew-toggle" aria-expanded="false">
+          <span id="crew-summary">Tap to add crew</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="seg crew" id="f-crew" style="display:none"></div>
       </div>
 
       <div class="field">
@@ -380,7 +399,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
     <div class="card" id="t-form" style="display:none">
       <div class="field">
         <span class="placard">Vessel</span>
-        <div class="seg" id="t-boat"></div>
+        <div class="seg boats" id="t-boat"></div>
       </div>
       <div class="field">
         <span class="placard">What's wrong</span>
@@ -416,7 +435,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
       <div id="maint-form" style="display:none;margin-top:16px">
         <div class="field">
           <span class="placard">Vessel</span>
-          <div class="seg" id="m-boat"></div>
+          <div class="seg boats" id="m-boat"></div>
         </div>
         <div class="field">
           <span class="placard">Item</span>
@@ -613,6 +632,14 @@ function segment(host, items, get, set) {
   };
 }
 
+function crewSummary() {
+  const btn = $("#crew-toggle"), n = S.crew.length;
+  $("#crew-summary").textContent = n
+    ? (n <= 2 ? S.crew.join(", ") : `${S.crew.slice(0, 2).join(", ")} +${n - 2}`)
+    : "Tap to add crew";
+  btn.classList.toggle("empty", !n);
+}
+
 function crewChips() {
   const host = $("#f-crew");
   host.innerHTML = CONFIG.OPERATORS.map(o =>
@@ -622,7 +649,9 @@ function crewChips() {
     const v = b.dataset.v;
     S.crew = S.crew.includes(v) ? S.crew.filter(x => x !== v) : [...S.crew, v];
     b.setAttribute("aria-pressed", S.crew.includes(v));
+    crewSummary();
   };
+  crewSummary();
 }
 
 function buildForm() {
@@ -641,6 +670,12 @@ function buildForm() {
   $("#t-by").insertAdjacentHTML("beforeend", opts);
 
   crewChips();
+
+  $("#crew-toggle").onclick = () => {
+    const list = $("#f-crew"), open = list.style.display === "flex";
+    list.style.display = open ? "none" : "flex";
+    $("#crew-toggle").setAttribute("aria-expanded", !open);
+  };
 
   $("#f-location").onchange = () => {
     const other = $("#f-location-other");
@@ -961,6 +996,8 @@ $("#save-log").onclick = async () => {
     S.crew = [];
     segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
     crewChips();
+    $("#f-crew").style.display = "none";
+    $("#crew-toggle").setAttribute("aria-expanded", "false");
     paint();
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (e) {

@@ -19,9 +19,10 @@ Deployed and working, not demo mode:
   repo `DARAIS-vessels/vessel-log-`)
 - **Backend:** Google Apps Script web app, `Execute as: Me`, `Anyone` access —
   worked fine at this institution, no fallback needed.
-- **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456
-  (must match between `BASELINE` in the script and `baselineHours` in
-  `index.html` — see invariants below).
+- **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456,
+  `barge|port` 0, `barge|stbd` 0 (must match between `BASELINE` in the script
+  and `baselineHours` in `index.html` — see invariants below). The barge's
+  baselines are placeholders — ask the owner for its real meter readings.
 - **Photos** file into a Shared Drive folder (`PHOTO_PARENT_ID` in
   `apps-script.gs`), not the developer's personal Drive — a Workspace admin
   policy blocked moving a My-Drive folder into the Shared Drive after the
@@ -65,6 +66,7 @@ Explicitly deferred, do not build unprompted:
 |---|---|---|
 | Boston Whaler | 18′ | single Tohatsu (`main`) |
 | Force | 22′ | twin Yamaha (`port`, `stbd`) |
+| Barge | 30′ | twin Honda 50 (`port`, `stbd`) — used much less often |
 
 Twin engines are the main thing shaping the data model. Hours are logged **per
 engine** — one sheet row each — so the Force writes two rows per trip and each
@@ -80,7 +82,10 @@ Nicole M., Lauren K., Elizabeth M., Hendrikje J.
 
 `CONFIG.OPERATORS` — the name is legacy, but it feeds **both** the single-select
 Captain dropdown and the multi-select Crew chips on the Log tab, so don't
-rename it to something Captain-specific. Activity and location are structured
+rename it to something Captain-specific. The Crew chips sit behind a collapsed
+summary button (`#crew-toggle` / `crewSummary()`) that reads "Kate G., Jesse B.
++2" — the roster outgrew an always-open chip grid. A native multi-select was
+considered and rejected: it hides the selection and is worse on a phone. Activity and location are structured
 (a dropdown of known spots plus "Other…" free text) by request — the owner
 didn't want fully-open categories once the common spots became clear.
 

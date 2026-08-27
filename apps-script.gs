@@ -12,7 +12,9 @@ var SERVICE_INTERVAL = 100;   // must match CONFIG.SERVICE_INTERVAL in index.htm
 var BASELINE = {
   "whaler|main": 233,
   "force|port":  456,
-  "force|stbd":  456
+  "force|stbd":  456,
+  "barge|port":  0,
+  "barge|stbd":  0
 };
 
 // Shared Drive folder (the one holding this Sheet) that ticket photos get
