@@ -11,6 +11,30 @@ Ledger** in the UI — the repo/file names stay `vessel-log`, that's a separate
 decision, don't rename the repo to match. Data goes to a Google Sheet via
 Apps Script.
 
+## Open loops — read this first (as of 27 Aug 2026)
+
+1. **Two commits are committed locally but NOT pushed to GitHub**, because the
+   token from setup expired and pushes keep dying on this network's DNS:
+   - `85f7f24` shrinks the crew picker (the visible one — the live site still
+     shows the old full-width box)
+   - `9105136` a docs note
+   The owner was mid-way through uploading `index.html` by hand through
+   github.com's *Add file ▸ Upload files* button, since the browser reaches
+   GitHub fine even when git can't. **If that upload happened, local and remote
+   have diverged** — remote will have a web commit carrying the same
+   `index.html` content, while these two local commits still sit unpushed.
+   Reconcile before doing more work: fetch, compare `index.html`, then rebase
+   or reset rather than blindly force-pushing.
+2. **`git push` is unreliable on this network.** DNS for `github.com` resolves
+   only intermittently. Each failure kills the credential handshake *before*
+   Git Credential Manager can save anything, which is why it re-prompts forever
+   — GCM is configured correctly (`credential.helper=manager`); it never gets
+   to finish. Retrying in a loop eventually works. A hosts-file pin for
+   `github.com` would fix it properly but needs an admin shell.
+3. **Barge baselines are placeholders** (100h each) — see below.
+4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
+   should be deleted once its rows are confirmed copied.
+
 ## Current status: live and in use
 
 Deployed and working, not demo mode:
