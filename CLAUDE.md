@@ -13,16 +13,20 @@ Apps Script.
 
 ## Open loops — read this first (as of 27 Aug 2026)
 
-1. **Two commits are committed locally but NOT pushed to GitHub**, because the
-   token from setup expired and pushes keep dying on this network's DNS:
+1. **Four commits are committed locally but NOT pushed to GitHub** (`origin/main`
+   is at `a2b3430`), because the token from setup expired and pushes keep dying
+   on this network's DNS:
    - `85f7f24` shrinks the crew picker (the visible one — the live site still
      shows the old full-width box)
    - `9105136` a docs note
+   - `8e63c2b` a docs note
+   - `b8d797a` the barge 20h baseline (so **the live site still shows the barge
+     at 100h**)
    The owner was mid-way through uploading `index.html` by hand through
    github.com's *Add file ▸ Upload files* button, since the browser reaches
    GitHub fine even when git can't. **If that upload happened, local and remote
    have diverged** — remote will have a web commit carrying the same
-   `index.html` content, while these two local commits still sit unpushed.
+   `index.html` content, while these local commits still sit unpushed.
    Reconcile before doing more work: fetch, compare `index.html`, then rebase
    or reset rather than blindly force-pushing.
 2. **`git push` is unreliable on this network.** DNS for `github.com` resolves
@@ -33,8 +37,12 @@ Apps Script.
    `github.com` would fix it properly but needs an admin shell.
 3. **Barge baselines are now the owner's stated reading** (20h each, set
    27 Aug 2026) — but the owner also said the barge is "due for its service
-   ASAP", which the 100-hour milestone can't express at 20h. Unresolved; see
-   below.
+   ASAP", which the 100-hour milestone can't express at 20h (it now reads
+   80 h to 100, the furthest from service in the fleet). Put to the owner as:
+   a break-in/first-service milestone for the new Hondas (code change), a
+   repair ticket they open themselves, a calendar Maintenance item, or the 20h
+   figure meaning hours-since-service rather than the meter reading (which
+   would make `b8d797a` wrong). **Left undecided — ask, don't assume.**
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
 
