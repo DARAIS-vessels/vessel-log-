@@ -31,7 +31,10 @@ Apps Script.
    — GCM is configured correctly (`credential.helper=manager`); it never gets
    to finish. Retrying in a loop eventually works. A hosts-file pin for
    `github.com` would fix it properly but needs an admin shell.
-3. **Barge baselines are placeholders** (100h each) — see below.
+3. **Barge baselines are now the owner's stated reading** (20h each, set
+   27 Aug 2026) — but the owner also said the barge is "due for its service
+   ASAP", which the 100-hour milestone can't express at 20h. Unresolved; see
+   below.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
 
@@ -49,12 +52,15 @@ Deployed and working, not demo mode:
   is still sitting in the sheet it is inert — the code only reads `Logs - *` —
   but it should be deleted once its rows are confirmed copied.
 - **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456,
-  `barge|port` 100, `barge|stbd` 100 (must match between `BASELINE` in the
-  script and `baselineHours` in `index.html` — see invariants below). **The
-  barge's 100s are a stand-in** — the owner didn't have its real meter
-  readings to hand and picked a round number. Swap in the true readings when
-  they turn up; until then its next-service estimate is fiction, and changing
-  the baseline later shifts every milestone for those two engines.
+  `barge|port` 20, `barge|stbd` 20 (must match between `BASELINE` in the
+  script and `baselineHours` in `index.html` — see invariants below). The
+  barge's earlier 100s were a round-number stand-in; **20h is the owner's
+  actual meter reading**, given 27 Aug 2026. The barge has no logged hours
+  yet, so both its engines read exactly 20.0 and the app shows 80 h to the
+  first 100-hour milestone. Note the owner said in the same breath that the
+  barge is due for service ASAP — an hour-based milestone at 20h cannot say
+  that, so if the Hondas need a break-in service, that's a separate mechanism
+  and needs asking about before building.
 - **Photos** file into a Shared Drive folder (`PHOTO_PARENT_ID` in
   `apps-script.gs`), not the developer's personal Drive — a Workspace admin
   policy blocked moving a My-Drive folder into the Shared Drive after the

@@ -13,8 +13,8 @@ var BASELINE = {
   "whaler|main": 233,
   "force|port":  456,
   "force|stbd":  456,
-  "barge|port":  100,
-  "barge|stbd":  100
+  "barge|port":  20,
+  "barge|stbd":  20
 };
 
 // Shared Drive folder (the one holding this Sheet) that ticket photos get
