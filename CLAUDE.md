@@ -11,23 +11,12 @@ Ledger** in the UI — the repo/file names stay `vessel-log`, that's a separate
 decision, don't rename the repo to match. Data goes to a Google Sheet via
 Apps Script.
 
-## Open loops — read this first (as of 27 Aug 2026)
+## Open loops — read this first (as of 3 Sep 2026)
 
-1. **Four commits are committed locally but NOT pushed to GitHub** (`origin/main`
-   is at `a2b3430`), because the token from setup expired and pushes keep dying
-   on this network's DNS:
-   - `85f7f24` shrinks the crew picker (the visible one — the live site still
-     shows the old full-width box)
-   - `9105136` a docs note
-   - `8e63c2b` a docs note
-   - `b8d797a` the barge 20h baseline (so **the live site still shows the barge
-     at 100h**)
-   The owner was mid-way through uploading `index.html` by hand through
-   github.com's *Add file ▸ Upload files* button when this was written.
-   **That upload never landed** — a successful `git fetch` on 3 Sep 2026 shows
-   `origin/main` still at `a2b3430`, so there is no divergence and the branch
-   is a clean fast-forward, 5 (now 6) commits ahead. Nothing to reconcile;
-   the push just needs to go through.
+1. **Everything is pushed.** `origin/main` and `main` are both at `97d5c94`
+   (pushed 3 Sep 2026, on the eighth retry). The hand-upload through
+   github.com that the previous note worried about never happened, so there
+   was no divergence. Nothing outstanding here.
 2. **`git push` is unreliable on this network.** DNS for `github.com` resolves
    only intermittently. Each failure kills the credential handshake *before*
    Git Credential Manager can save anything, which is why it re-prompts forever
@@ -45,6 +34,23 @@ Apps Script.
    — nothing was written to the real sheet from here.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
+5. **Force baseline: owner says 232, the code says 456 — unresolved.**
+   On 3 Sep 2026 the owner reported the Force's 200-hour service (8 June 2026,
+   Reliable Marine, both engines) plus 33 hours run afterwards, and asked for a
+   new baseline of **232** on both. That is **224 hours below** the 456 the app
+   and script have been using since launch, so one of the two figures is wrong
+   and every Force total logged so far is computed on 456. Also note 200 + 33
+   = 233, not 232, and 233 happens to be the Whaler's baseline — worth ruling
+   out a mix-up before touching it. Applying it means editing **both**
+   `baselineHours` in `index.html` and `BASELINE` in `apps-script.gs`
+   (invariant 2) and having the owner redeploy the script, and it moves the
+   Force's next milestone from 500 down to 300, stranding any 500-hour ticket
+   already opened. **Ask before changing.**
+6. **Force's next service interval is undecided.** The owner asked what Yamaha
+   recommends — 500 hours, or annual — and didn't know. `SERVICE_INTERVAL` is
+   a single global 100 for the whole fleet, so a per-boat hour interval would
+   be a new mechanism; an annual service fits the calendar Maintenance tab as
+   it stands. Confirm the real interval with Reliable Marine or the manual.
 
 ## Current status: live and in use
 
@@ -123,6 +129,19 @@ Yamaha reaches its 100-hour milestones independently. Typing port hours
 auto-fills starboard live (until starboard is edited directly — see
 `engineInputs()`); the "Same as port" button still works and resumes
 auto-follow.
+
+### Service history (owner-reported, not in the app)
+
+The app has no service-history view — a closed ticket records *that* a service
+happened but stamps it with the day it was closed, so a past service can't be
+entered honestly. Keep the record here until there's somewhere better.
+
+- **Force, both Yamahas — 200-hour service, 8 June 2026, by Reliable Marine.**
+  Reported by the owner 3 Sep 2026. The engines then ran **33 more hours**
+  before the app went live, which is where the owner's proposed 232 baseline
+  comes from. **Not yet applied — see the open loop about the Force baseline.**
+- **Barge, both Hondas — never serviced** as of 3 Sep 2026, sitting on the
+  20-hour break-in.
 
 ## Crew roster
 
