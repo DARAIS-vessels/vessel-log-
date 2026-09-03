@@ -23,12 +23,11 @@ Apps Script.
    - `b8d797a` the barge 20h baseline (so **the live site still shows the barge
      at 100h**)
    The owner was mid-way through uploading `index.html` by hand through
-   github.com's *Add file ▸ Upload files* button, since the browser reaches
-   GitHub fine even when git can't. **If that upload happened, local and remote
-   have diverged** — remote will have a web commit carrying the same
-   `index.html` content, while these local commits still sit unpushed.
-   Reconcile before doing more work: fetch, compare `index.html`, then rebase
-   or reset rather than blindly force-pushing.
+   github.com's *Add file ▸ Upload files* button when this was written.
+   **That upload never landed** — a successful `git fetch` on 3 Sep 2026 shows
+   `origin/main` still at `a2b3430`, so there is no divergence and the branch
+   is a clean fast-forward, 5 (now 6) commits ahead. Nothing to reconcile;
+   the push just needs to go through.
 2. **`git push` is unreliable on this network.** DNS for `github.com` resolves
    only intermittently. Each failure kills the credential handshake *before*
    Git Credential Manager can save anything, which is why it re-prompts forever
@@ -217,13 +216,21 @@ Dark blue only: `--abyss` `#050f1e` background through `--raise` `#16355a`, with
 `--fault` is a high-priority ticket, green `--ok` is repaired/fine (also reused
 for maintenance items that aren't due soon).
 
-The signature element is the **hour meter** on the Fleet tab — a big circular
-ring gauge with the boat name, odometer-style reading, and time-to-service all
+The signature element is the **hour meter** on the Fleet tab — a circular ring
+gauge with the engine label, odometer-style reading, and time-to-service all
 centered inside it, going amber (ring + text) in the final 10 hours. It's the
 thing the owner looks at before scheduling maintenance. Keep it central if the
 UI gets reworked — this went through two iterations (linear bar → small ring →
 large ring with info inside) before landing here, so it's a considered choice,
 not a default.
+
+**One card per boat, not per engine** (Sep 2026, owner's request — the Fleet tab
+was too much scrolling before Maintenance and Recent entries). The card header
+carries the boat name and rig; a twin's two rings sit side by side inside it
+(`.meter.twin`, rings capped at 154px, with their own smaller type scale), and a
+single-engine boat gets one 206px ring. Five stacked cards were ~1500px of
+meters; three are ~700px. The amber "due" state now lives on `.ring-wrap`, not
+the card, so on a twin only the engine that's actually near service goes amber.
 
 Type: system sans for UI, monospace for anything numeric or instrument-like
 (hour readings, labels, timestamps). The monospace/uppercase placard labels are

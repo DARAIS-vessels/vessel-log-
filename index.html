@@ -182,25 +182,37 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 /* ---- SIGNATURE: the hour meter ---- */
 .meter{
   background:var(--hull);border:1px solid var(--line-soft);border-radius:16px;
-  padding:22px 18px;margin-bottom:12px;position:relative;overflow:hidden;
+  padding:16px 18px 20px;margin-bottom:12px;position:relative;overflow:hidden;
 }
-.ring-wrap{position:relative;width:min(240px,100%);aspect-ratio:1;margin:0 auto}
-.ring{width:100%;height:100%;transform:rotate(-90deg)}
+.meter-head{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
+.meter-head .placard{margin-bottom:0}
+.meter-head .sub{font:500 10px/1 var(--mono);letter-spacing:.06em;color:var(--faint)}
+.rings{display:flex;align-items:center;justify-content:center;gap:12px}
+.ring-wrap{position:relative;width:min(206px,100%);aspect-ratio:1;margin:0 auto}
+.ring{display:block;width:100%;height:100%;transform:rotate(-90deg)}
 .ring circle{fill:none;stroke-width:8}
 .ring .rtrack{stroke:var(--deck)}
 .ring .rfill{stroke:var(--buoy);stroke-linecap:round;transition:stroke-dashoffset .5s ease}
-.meter.due .ring .rfill{stroke:var(--beacon)}
+.ring-wrap.due .ring .rfill{stroke:var(--beacon)}
 .ring-info{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  padding:0 20px;text-align:center;
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  padding:0 18px;text-align:center;
 }
-.ring-info .who{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
-.ring-info .reading{font:700 32px var(--mono);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.ring-info .who{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.ring-info .reading{font:700 30px var(--mono);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .ring-info .reading .lo{color:var(--buoy)}
-.meter.due .ring-info .reading .lo{color:var(--beacon)}
+.ring-wrap.due .ring-info .reading .lo{color:var(--beacon)}
 .ring-info .hrs{font:600 10px var(--mono);letter-spacing:.14em;color:var(--faint)}
-.ring-info .to-go{font:600 11px var(--mono);letter-spacing:.04em;color:var(--faint);margin-top:4px}
-.meter.due .ring-info .to-go{color:var(--beacon)}
+.ring-info .to-go{font:600 11px var(--mono);letter-spacing:.04em;color:var(--faint);margin-top:3px}
+.ring-wrap.due .ring-info .to-go{color:var(--beacon)}
+
+/* Twin engines share one card, side by side, so a boat is one glance not two. */
+.meter.twin .ring-wrap{width:auto;flex:1 1 0;max-width:154px;margin:0}
+.meter.twin .ring-info{padding:0 9px;gap:1px}
+.meter.twin .ring-info .who{font-size:9.5px;letter-spacing:.08em}
+.meter.twin .ring-info .reading{font-size:23px}
+.meter.twin .ring-info .hrs{font-size:8px;letter-spacing:.12em}
+.meter.twin .ring-info .to-go{font-size:9px;margin-top:2px}
 
 /* ---- tickets ---- */
 .ticket{
@@ -719,29 +731,38 @@ function paint() { meters(); ticketList(); maintList(); recent(); badge(); }
 
 function meters() {
   const step = CONFIG.SERVICE_INTERVAL;
-  $("#meters").innerHTML = CONFIG.BOATS.map(b => b.engines.map(e => {
-    const t = totalFor(b.id, e.id);
-    const into = t % step, left = step - into, next = Math.floor(t / step) * step + step;
-    const due = left <= step * 0.1;
-    const whole = Math.floor(t).toString().padStart(4, "0");
-    const dec = Math.round((t - Math.floor(t)) * 10);
-    const r = 42, circ = 2 * Math.PI * r, frac = Math.min(1, into / step);
-    const dashOffset = circ * (1 - frac);
-    return `<div class="meter ${due ? "due" : ""}">
-      <div class="ring-wrap">
+  // One card per boat: a twin's two engines sit side by side rather than
+  // stacking, so the whole fleet fits above Maintenance and Recent entries.
+  $("#meters").innerHTML = CONFIG.BOATS.map(b => {
+    const rings = b.engines.map(e => {
+      const t = totalFor(b.id, e.id);
+      const into = t % step, left = step - into, next = Math.floor(t / step) * step + step;
+      const due = left <= step * 0.1;
+      const whole = Math.floor(t).toString().padStart(4, "0");
+      const dec = Math.round((t - Math.floor(t)) * 10);
+      const r = 42, circ = 2 * Math.PI * r, frac = Math.min(1, into / step);
+      const dashOffset = circ * (1 - frac);
+      return `<div class="ring-wrap ${due ? "due" : ""}">
         <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
           <circle class="rtrack" cx="50" cy="50" r="${r}"/>
           <circle class="rfill" cx="50" cy="50" r="${r}" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"/>
         </svg>
         <div class="ring-info">
-          <span class="who">${esc(b.name)}${b.engines.length > 1 ? " · " + esc(e.label) : ""}</span>
+          <span class="who">${esc(e.label)}</span>
           <span class="reading">${whole}<span class="lo">.${dec}</span></span>
           <span class="hrs">HOURS</span>
           <span class="to-go">${left.toFixed(1)} h to ${next}</span>
         </div>
+      </div>`;
+    }).join("");
+    return `<div class="meter ${b.engines.length > 1 ? "twin" : ""}">
+      <div class="meter-head">
+        <span class="placard">${esc(b.name)}</span>
+        <span class="sub">${esc(b.sub)}</span>
       </div>
+      <div class="rings">${rings}</div>
     </div>`;
-  }).join("")).join("");
+  }).join("");
 }
 
 function ticketList() {
