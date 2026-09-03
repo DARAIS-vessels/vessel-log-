@@ -34,14 +34,15 @@ Apps Script.
    — GCM is configured correctly (`credential.helper=manager`); it never gets
    to finish. Retrying in a loop eventually works. A hosts-file pin for
    `github.com` would fix it properly but needs an admin shell.
-3. **Barge baselines are now the owner's stated reading** (20h each, set
-   27 Aug 2026) — but the owner also said the barge is "due for its service
-   ASAP", which the 100-hour milestone can't express at 20h (it now reads
-   80 h to 100, the furthest from service in the fleet). Put to the owner as:
-   a break-in/first-service milestone for the new Hondas (code change), a
-   repair ticket they open themselves, a calendar Maintenance item, or the 20h
-   figure meaning hours-since-service rather than the meter reading (which
-   would make `b8d797a` wrong). **Left undecided — ask, don't assume.**
+3. **Barge: settled 3 Sep 2026.** The owner confirmed 20h *is* the meter
+   reading (so `b8d797a` is right) and that the engines have never been
+   serviced — they're sitting exactly on the Hondas' 20-hour break-in service.
+   Chosen fix: the owner opens a **Scheduled service** ticket, and the Fleet
+   gauge now reads that ticket (see "Service tickets drive the gauge" below).
+   No break-in milestone was built into the code — an hour milestone can't
+   fire retroactively for an engine that was already past it at baseline.
+   **Still to do: the owner has to actually open that ticket on the live app**
+   — nothing was written to the real sheet from here.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
 
@@ -97,6 +98,9 @@ Built since v1, at the owner's request (not unprompted scope creep):
 - Calendar-based Maintenance tracking (batteries, zincs, etc.) — separate from the hour-based service tickets
 - Auto-mirror of Force's port hours into starboard while typing (still overridable)
 - Rebrand to "AIS Vessel Ledger" with a DAR logo (header + home-screen icon)
+- One Fleet card per boat, a twin's engines side by side (Sep 2026)
+- A **Scheduled service** ticket type that makes that boat's hour meters read
+  SERVICE DUE until the ticket is closed (Sep 2026)
 
 Explicitly deferred, do not build unprompted:
 
@@ -205,6 +209,19 @@ their header.
    not `uc?export=view`.** The latter often redirects to an HTML viewer page
    instead of raw image bytes when hotlinked in an `<img>` tag — shows as a
    broken image. Learned this the hard way; don't revert it.
+
+5. **Service tickets drive the gauge, and the ticket ID is the link.**
+   A ring on the Fleet tab goes amber and reads `SERVICE DUE` when an *open*
+   ticket's ID names that engine. `serviceDueFor()` parses the ID as
+   `svc-<boat>-<engine>-<rest>`, where `<engine>` is an engine ID or `all`.
+   The script's milestone tickets already have that shape
+   (`svc-force-port-200`); a ticket opened by hand with **Ticket type ▸
+   Scheduled service** gets `svc-<boat>-all-<uid>` from `serviceTicketId()`.
+   Consequences: boat and engine IDs must stay **hyphen-free** or the parse
+   breaks, and no new column was added to the `Tickets` sheet — the existing
+   ID column carries it, which is why this needed no Apps Script redeploy.
+   Closing or deleting the ticket clears the gauge on the next `paint()`.
+   A plain Repair ticket deliberately does *not* touch the gauge.
 
 Also: the fetch uses `Content-Type: text/plain` deliberately. It avoids a CORS
 preflight that Apps Script won't answer. Don't "fix" it to `application/json`.

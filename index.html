@@ -413,11 +413,16 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 
     <div class="card" id="t-form" style="display:none">
       <div class="field">
+        <span class="placard">Ticket type</span>
+        <div class="seg" id="t-kind"></div>
+        <p class="hint" id="t-kind-hint" style="margin:6px 0 0;display:none">Marks the boat's hour meters as due for service until this ticket is closed.</p>
+      </div>
+      <div class="field">
         <span class="placard">Vessel</span>
         <div class="seg boats" id="t-boat"></div>
       </div>
       <div class="field">
-        <span class="placard">What's wrong</span>
+        <span class="placard" id="t-title-label">What's wrong</span>
         <input type="text" id="t-title" placeholder="e.g. Port trim pump not holding">
       </div>
       <div class="field">
@@ -517,7 +522,7 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 const S = {
   logs: [], tickets: [], maint: [],
   boat: CONFIG.BOATS[0].id, fuel: null, hours: {}, crew: [],
-  tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tView: "all", mBoat: CONFIG.BOATS[0].id,
+  tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tKind: "repair", tView: "all", mBoat: CONFIG.BOATS[0].id,
   live: !!CONFIG.SHEET_URL.trim(), busy: false
 };
 const $ = s => document.querySelector(s);
@@ -626,6 +631,34 @@ function totalFor(boatId, engId) {
                .reduce((s, l) => s + num(l.hours), num(e.baselineHours));
 }
 
+/* ---- service tickets and the hour meters ----
+   A ticket's ID says which engine it covers. The milestone tickets the script
+   opens already look like svc-force-port-200; a ticket opened by hand as a
+   scheduled service gets the same shape with "all" in the engine slot, so it
+   covers every engine on that boat. Nothing new is stored in the sheet — the
+   ID column carries it — and closing the ticket clears the meter again.
+   Boat and engine IDs must stay hyphen-free for this to parse. */
+const TICKET_KINDS = [{ v: "repair", t: "Repair" }, { v: "service", t: "Scheduled service" }];
+
+const serviceTicketId = boatId => `svc-${boatId}-all-${uid()}`;
+
+function serviceDueFor(boatId, engId) {
+  return S.tickets.some(t => {
+    if ((t.status || "open") !== "open") return false;
+    const p = String(t.id || "").split("-");
+    return p[0] === "svc" && p[1] === boatId && (p[2] === engId || p[2] === "all");
+  });
+}
+
+function ticketKindHint() {
+  const service = S.tKind === "service";
+  $("#t-kind-hint").style.display = service ? "block" : "none";
+  $("#t-title-label").textContent = service ? "What's due" : "What's wrong";
+  $("#t-title").placeholder = service
+    ? "e.g. 20-hour break-in service"
+    : "e.g. Port trim pump not holding";
+}
+
 function toast(kind, head, body) {
   const el = document.createElement("div");
   el.className = "toast" + (kind ? " " + kind : "");
@@ -678,6 +711,7 @@ function buildForm() {
   segment($("#m-boat"), boats, () => S.mBoat, v => S.mBoat = v);
   segment($("#t-prio"), ["Low","Medium","High"].map(p => ({ v: p, t: p })),
            () => S.tPrio, v => S.tPrio = v);
+  segment($("#t-kind"), TICKET_KINDS, () => S.tKind, v => { S.tKind = v; ticketKindHint(); });
   segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
 
   const opts = CONFIG.OPERATORS.map(o => `<option>${esc(o)}</option>`).join("");
@@ -737,7 +771,8 @@ function meters() {
     const rings = b.engines.map(e => {
       const t = totalFor(b.id, e.id);
       const into = t % step, left = step - into, next = Math.floor(t / step) * step + step;
-      const due = left <= step * 0.1;
+      const onTicket = serviceDueFor(b.id, e.id);
+      const due = onTicket || left <= step * 0.1;
       const whole = Math.floor(t).toString().padStart(4, "0");
       const dec = Math.round((t - Math.floor(t)) * 10);
       const r = 42, circ = 2 * Math.PI * r, frac = Math.min(1, into / step);
@@ -751,7 +786,7 @@ function meters() {
           <span class="who">${esc(e.label)}</span>
           <span class="reading">${whole}<span class="lo">.${dec}</span></span>
           <span class="hrs">HOURS</span>
-          <span class="to-go">${left.toFixed(1)} h to ${next}</span>
+          <span class="to-go">${onTicket ? "SERVICE DUE" : `${left.toFixed(1)} h to ${next}`}</span>
         </div>
       </div>`;
     }).join("");
@@ -1036,8 +1071,10 @@ $("#save-ticket").onclick = async () => {
   const title = $("#t-title").value.trim(), by = $("#t-by").value;
   if (!title || !by) return toast("warn", "Still needed", "Add what's wrong and who's reporting it.");
 
+  const service = S.tKind === "service";
   const t = {
-    id: uid(), created: today(), boat: S.tBoat, part: $("#t-part").value.trim(),
+    id: service ? serviceTicketId(S.tBoat) : uid(),
+    created: today(), boat: S.tBoat, part: $("#t-part").value.trim(),
     title, priority: S.tPrio, by, desc: $("#t-desc").value.trim(),
     auto: false, status: "open", closed: ""
   };
@@ -1048,8 +1085,13 @@ $("#save-ticket").onclick = async () => {
     if (S.live) S.tickets.unshift(t);
     ["t-title","t-part","t-desc"].forEach(id => $("#" + id).value = "");
     $("#t-by").value = "";
+    S.tKind = "repair";
+    $("#t-kind").querySelectorAll("button").forEach(b =>
+      b.setAttribute("aria-pressed", b.dataset.v === "repair"));
+    ticketKindHint();
     switchTicketTab("all");
-    toast("", "Ticket opened", title);
+    paint();
+    toast("", service ? "Service ticket opened" : "Ticket opened", title);
   } catch (e) { toast("bad", "Not saved", e.message); }
   finally { S.busy = false; btn.disabled = false; btn.textContent = "Open ticket"; }
 };
