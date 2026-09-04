@@ -54,7 +54,8 @@ Apps Script.
    both boats were serviced 8 June 2026, so both come due June 2027. If the
    owner wants that tracked it's a calendar Maintenance item per boat
    ("Annual service — Force" / "— Boston Whaler", last done 2026-06-08, every
-   12 months), which they can add themselves. Confirm against the manuals or
+   12 months). **The owner said on 3 Sep 2026 they would add these themselves**
+   — don't re-offer, just check they exist. Confirm against the manuals or
    the yard for these specific engines.
 
 ## Current status: live and in use
