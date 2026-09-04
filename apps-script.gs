@@ -11,8 +11,8 @@ var SERVICE_INTERVAL = 100;   // must match CONFIG.SERVICE_INTERVAL in index.htm
 // Keys are "boatId|engineId". Must match baselineHours in index.html.
 var BASELINE = {
   "whaler|main": 233,
-  "force|port":  456,
-  "force|stbd":  456,
+  "force|port":  232,
+  "force|stbd":  232,
   "barge|port":  20,
   "barge|stbd":  20
 };

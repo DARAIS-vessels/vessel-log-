@@ -34,23 +34,23 @@ Apps Script.
    — nothing was written to the real sheet from here.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
-5. **Force baseline: owner says 232, the code says 456 — unresolved.**
-   On 3 Sep 2026 the owner reported the Force's 200-hour service (8 June 2026,
-   Reliable Marine, both engines) plus 33 hours run afterwards, and asked for a
-   new baseline of **232** on both. That is **224 hours below** the 456 the app
-   and script have been using since launch, so one of the two figures is wrong
-   and every Force total logged so far is computed on 456. Also note 200 + 33
-   = 233, not 232, and 233 happens to be the Whaler's baseline — worth ruling
-   out a mix-up before touching it. Applying it means editing **both**
-   `baselineHours` in `index.html` and `BASELINE` in `apps-script.gs`
-   (invariant 2) and having the owner redeploy the script, and it moves the
-   Force's next milestone from 500 down to 300, stranding any 500-hour ticket
-   already opened. **Ask before changing.**
-6. **Force's next service interval is undecided.** The owner asked what Yamaha
-   recommends — 500 hours, or annual — and didn't know. `SERVICE_INTERVAL` is
-   a single global 100 for the whole fleet, so a per-boat hour interval would
-   be a new mechanism; an annual service fits the calendar Maintenance tab as
-   it stands. Confirm the real interval with Reliable Marine or the manual.
+5. **Force baseline is now 232 — but `apps-script.gs` has NOT been redeployed.**
+   Applied 3 Sep 2026 in both `index.html` and `apps-script.gs` after the owner
+   confirmed 232 over the objections (see the Baselines bullet). **The Google
+   copy of the script is still on 456 until the owner pastes and redeploys.**
+   Until they do, the app and the sheet disagree by 224 h about Force totals,
+   which is exactly what invariant 2 warns about: the client will show ~236 h
+   while the server still thinks ~460 h and will open a 500-hour ticket that
+   the app can't explain. **Check this got done before trusting Force numbers.**
+6. **Force service interval: answered, nothing to build.** Yamaha's four-stroke
+   routine service is every **100 hours or 12 months, whichever comes first**,
+   and the next milestone after 200 is **300 h** (where the valve-clearance
+   check falls on most four-strokes). The app's global `SERVICE_INTERVAL` of
+   100 already matches the hour half, so no code change. The annual half is
+   not covered — if the owner wants it, it's a calendar Maintenance item
+   ("Annual service — Force", last done 2026-06-08, every 12 months), which
+   they can add themselves. Confirm against the manual or Reliable Marine
+   for these specific engines.
 
 ## Current status: live and in use
 
@@ -65,16 +65,20 @@ Deployed and working, not demo mode:
   duplicate, and delete sweeps every tab. If the original combined `Logs` tab
   is still sitting in the sheet it is inert — the code only reads `Logs - *` —
   but it should be deleted once its rows are confirmed copied.
-- **Baselines set:** `whaler|main` 233, `force|port` 456, `force|stbd` 456,
+- **Baselines set:** `whaler|main` 233, `force|port` 232, `force|stbd` 232,
   `barge|port` 20, `barge|stbd` 20 (must match between `BASELINE` in the
-  script and `baselineHours` in `index.html` — see invariants below). The
-  barge's earlier 100s were a round-number stand-in; **20h is the owner's
-  actual meter reading**, given 27 Aug 2026. The barge has no logged hours
-  yet, so both its engines read exactly 20.0 and the app shows 80 h to the
-  first 100-hour milestone. Note the owner said in the same breath that the
-  barge is due for service ASAP — an hour-based milestone at 20h cannot say
-  that, so if the Hondas need a break-in service, that's a separate mechanism
-  and needs asking about before building.
+  script and `baselineHours` in `index.html` — see invariants below).
+  The **Force dropped from 456 to 232 on 3 Sep 2026** at the owner's
+  instruction: the engines had their 200-hour service on 8 June 2026 and ran
+  33 hours afterwards before the app went live. The owner was shown that this
+  is 224 hours below the launch figure, that 200 + 33 is 233 rather than 232,
+  and that 233 is also the Whaler's baseline, and confirmed 232 anyway —
+  so 232 is deliberate, not a slip. Logged sheet rows still add on top of it,
+  which drops both Yamahas to roughly 236 h and moves their next milestone
+  from 500 to 300. The barge's earlier 100s were a round-number stand-in;
+  **20h is the owner's actual meter reading**, given 27 Aug 2026, and its
+  engines have never been serviced — that's carried by a Scheduled service
+  ticket now, not by a milestone.
 - **Photos** file into a Shared Drive folder (`PHOTO_PARENT_ID` in
   `apps-script.gs`), not the developer's personal Drive — a Workspace admin
   policy blocked moving a My-Drive folder into the Shared Drive after the
@@ -139,7 +143,8 @@ entered honestly. Keep the record here until there's somewhere better.
 - **Force, both Yamahas — 200-hour service, 8 June 2026, by Reliable Marine.**
   Reported by the owner 3 Sep 2026. The engines then ran **33 more hours**
   before the app went live, which is where the owner's proposed 232 baseline
-  comes from. **Not yet applied — see the open loop about the Force baseline.**
+  comes from, applied 3 Sep 2026. Next service due at **300 h or June 2027**,
+  whichever comes first.
 - **Barge, both Hondas — never serviced** as of 3 Sep 2026, sitting on the
   20-hour break-in.
 
