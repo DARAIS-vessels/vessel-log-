@@ -34,17 +34,20 @@ Apps Script.
    — nothing was written to the real sheet from here.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
-5. **Baselines were re-cut for the Force AND the Whaler — `apps-script.gs` has
-   NOT been redeployed.** Applied 3 Sep 2026 in both `index.html` and
-   `apps-script.gs`: `force|port` and `force|stbd` 456 → 232, `whaler|main`
-   233 → 162 (see the Baselines bullet). **The Google copy of the script still
-   holds the old numbers until the owner pastes and redeploys.** Until they do,
-   the app and the sheet disagree — by 224 h on each Yamaha and 71 h on the
-   Tohatsu — which is exactly what invariant 2 warns about: the client shows
-   the Force near 236 h while the server still thinks ~460 h and will open a
-   500-hour ticket the app can't explain, and likewise the Whaler at ~170 h
-   against the server's ~241 h. **Check this got done before trusting any
-   hour totals.**
+5. **Baselines re-cut and redeployed, 3 Sep 2026.** `force|port` and
+   `force|stbd` 456 → 232, `whaler|main` 233 → 162, changed in both
+   `index.html` and `apps-script.gs` (see the Baselines bullet), pushed, and
+   **the owner reports pasting the script into Google and redeploying.** Not
+   independently verified — the server's `BASELINE` isn't visible from
+   outside; it only shows itself the next time an entry is logged and
+   `addLogs_` decides whether a milestone was crossed. If a Force entry ever
+   produces a milestone ticket that doesn't match what the app shows, suspect
+   the redeploy didn't take and check `BASELINE` in the Google copy first.
+   **Watch for a stale auto ticket:** under the old 456 baseline the Force sat
+   near 460 h, so the server may already have opened
+   `svc-force-port-500` / `svc-force-stbd-500`. Those don't get cleaned up,
+   and an open `svc-force-*` ticket now makes the Force rings read SERVICE DUE
+   (invariant 5) — delete any that don't match reality.
 6. **Service intervals: answered, nothing to build.** Yamaha four-stroke
    (Force) and Tohatsu (Whaler) both run routine service every **100 hours or
    12 months, whichever comes first**. Next stops: Force **300 h** (valve
@@ -321,8 +324,14 @@ as design. Don't tint or recolor it.
   editor and redeploy a new version (Deploy ▸ Manage deployments ▸ pencil ▸
   New version ▸ Deploy) — that copy doesn't update itself. For long pastes,
   don't rely on copying out of the chat UI — it truncates. Instead run
-  `Get-Content -Raw apps-script.gs | Set-Clipboard` and have them paste from
-  the real clipboard.
+  `Get-Content -Raw -Encoding UTF8 apps-script.gs | Set-Clipboard` and have
+  them paste from the real clipboard. **The `-Encoding UTF8` is not optional:**
+  Windows PowerShell 5.1 defaults `Get-Content` to the ANSI codepage, so the
+  file's em-dashes land on the clipboard as `â€”`. That's cosmetic in the
+  comments but not in `addLogs_`, where an em-dash sits inside the ticket-title
+  string literal — every auto service ticket would read
+  "200-hour service â€” Force Port". Caught this on 3 Sep 2026 before it was
+  pasted; verify with `$c.Contains([char]0x2014)` after copying.
 - **Adding a new Apps Script service (e.g. `DriveApp`) needs a manual
   re-authorization**, and it doesn't reliably prompt from redeploying or from
   running an unrelated function (like `doGet`) in the editor — it only
