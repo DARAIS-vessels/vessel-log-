@@ -34,23 +34,28 @@ Apps Script.
    — nothing was written to the real sheet from here.
 4. **The old combined `Logs` tab** may still be in the sheet; it's inert but
    should be deleted once its rows are confirmed copied.
-5. **Force baseline is now 232 — but `apps-script.gs` has NOT been redeployed.**
-   Applied 3 Sep 2026 in both `index.html` and `apps-script.gs` after the owner
-   confirmed 232 over the objections (see the Baselines bullet). **The Google
-   copy of the script is still on 456 until the owner pastes and redeploys.**
-   Until they do, the app and the sheet disagree by 224 h about Force totals,
-   which is exactly what invariant 2 warns about: the client will show ~236 h
-   while the server still thinks ~460 h and will open a 500-hour ticket that
-   the app can't explain. **Check this got done before trusting Force numbers.**
-6. **Force service interval: answered, nothing to build.** Yamaha's four-stroke
-   routine service is every **100 hours or 12 months, whichever comes first**,
-   and the next milestone after 200 is **300 h** (where the valve-clearance
-   check falls on most four-strokes). The app's global `SERVICE_INTERVAL` of
-   100 already matches the hour half, so no code change. The annual half is
-   not covered — if the owner wants it, it's a calendar Maintenance item
-   ("Annual service — Force", last done 2026-06-08, every 12 months), which
-   they can add themselves. Confirm against the manual or Reliable Marine
-   for these specific engines.
+5. **Baselines were re-cut for the Force AND the Whaler — `apps-script.gs` has
+   NOT been redeployed.** Applied 3 Sep 2026 in both `index.html` and
+   `apps-script.gs`: `force|port` and `force|stbd` 456 → 232, `whaler|main`
+   233 → 162 (see the Baselines bullet). **The Google copy of the script still
+   holds the old numbers until the owner pastes and redeploys.** Until they do,
+   the app and the sheet disagree — by 224 h on each Yamaha and 71 h on the
+   Tohatsu — which is exactly what invariant 2 warns about: the client shows
+   the Force near 236 h while the server still thinks ~460 h and will open a
+   500-hour ticket the app can't explain, and likewise the Whaler at ~170 h
+   against the server's ~241 h. **Check this got done before trusting any
+   hour totals.**
+6. **Service intervals: answered, nothing to build.** Yamaha four-stroke
+   (Force) and Tohatsu (Whaler) both run routine service every **100 hours or
+   12 months, whichever comes first**. Next stops: Force **300 h** (valve
+   clearance on most four-strokes), Whaler **200 h** (oil filter and impeller).
+   The app's global `SERVICE_INTERVAL` of 100 already matches the hour half of
+   both, so no code change. The **annual half is not covered by anything** —
+   both boats were serviced 8 June 2026, so both come due June 2027. If the
+   owner wants that tracked it's a calendar Maintenance item per boat
+   ("Annual service — Force" / "— Boston Whaler", last done 2026-06-08, every
+   12 months), which they can add themselves. Confirm against the manuals or
+   the yard for these specific engines.
 
 ## Current status: live and in use
 
@@ -65,20 +70,25 @@ Deployed and working, not demo mode:
   duplicate, and delete sweeps every tab. If the original combined `Logs` tab
   is still sitting in the sheet it is inert — the code only reads `Logs - *` —
   but it should be deleted once its rows are confirmed copied.
-- **Baselines set:** `whaler|main` 233, `force|port` 232, `force|stbd` 232,
+- **Baselines set:** `whaler|main` 162, `force|port` 232, `force|stbd` 232,
   `barge|port` 20, `barge|stbd` 20 (must match between `BASELINE` in the
   script and `baselineHours` in `index.html` — see invariants below).
   The **Force dropped from 456 to 232 on 3 Sep 2026** at the owner's
   instruction: the engines had their 200-hour service on 8 June 2026 and ran
   33 hours afterwards before the app went live. The owner was shown that this
   is 224 hours below the launch figure, that 200 + 33 is 233 rather than 232,
-  and that 233 is also the Whaler's baseline, and confirmed 232 anyway —
+  and that 233 was then the Whaler's baseline too, and confirmed 232 anyway —
   so 232 is deliberate, not a slip. Logged sheet rows still add on top of it,
   which drops both Yamahas to roughly 236 h and moves their next milestone
   from 500 to 300. The barge's earlier 100s were a round-number stand-in;
   **20h is the owner's actual meter reading**, given 27 Aug 2026, and its
   engines have never been serviced — that's carried by a Scheduled service
   ticket now, not by a milestone.
+  The **Whaler dropped from 233 to 162 on 3 Sep 2026** on the same basis: a
+  100-hour service on 8 June 2026 plus 62 hours run afterwards. Unlike the
+  Force the owner gave no target figure, so this is plain arithmetic —
+  100 + 62 = 162. If the convention that produced the Force's 232 rather than
+  233 was deliberate, this should be 161; flagged to the owner, unanswered.
 - **Photos** file into a Shared Drive folder (`PHOTO_PARENT_ID` in
   `apps-script.gs`), not the developer's personal Drive — a Workspace admin
   policy blocked moving a My-Drive folder into the Shared Drive after the
@@ -145,6 +155,14 @@ entered honestly. Keep the record here until there's somewhere better.
   before the app went live, which is where the owner's proposed 232 baseline
   comes from, applied 3 Sep 2026. Next service due at **300 h or June 2027**,
   whichever comes first.
+- **Boston Whaler, Tohatsu — 100-hour service, 8 June 2026.** Reported by the
+  owner 3 Sep 2026; **who did the work wasn't stated** — plausibly Reliable
+  Marine on the same day as the Force, but that's an assumption, don't record
+  it as fact. Ran **62 more hours** afterwards, giving the 162 baseline
+  applied 3 Sep 2026. Next service at **200 h or June 2027**, whichever comes
+  first — and note the Whaler is a **Tohatsu, not a Yamaha**, so the Force's
+  schedule doesn't carry over. Tohatsu is also 100 h / annual for routine
+  work, with the oil filter and impeller falling at 200 h or one year.
 - **Barge, both Hondas — never serviced** as of 3 Sep 2026, sitting on the
   20-hour break-in.
 

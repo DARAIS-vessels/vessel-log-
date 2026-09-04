@@ -10,7 +10,7 @@ var SERVICE_INTERVAL = 100;   // must match CONFIG.SERVICE_INTERVAL in index.htm
 // Current meter reading of each engine on the day you start using this.
 // Keys are "boatId|engineId". Must match baselineHours in index.html.
 var BASELINE = {
-  "whaler|main": 233,
+  "whaler|main": 162,
   "force|port":  232,
   "force|stbd":  232,
   "barge|port":  20,
