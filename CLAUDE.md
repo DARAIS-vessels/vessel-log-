@@ -191,6 +191,8 @@ read — edit names in the app or the sheet, not in the code. Removing a name
 never touches past log rows. The roster above is the built-in starting list,
 not necessarily the live one. An un-redeployed script answers "Unknown
 action", which the editor reports as "the sheet's script needs updating".
+**Script pasted and redeployed 28 Sep 2026; the owner tested add/remove on the
+live app and confirmed it works.**
 
 `CONFIG.OPERATORS` / `S.roster` — the name is legacy, but it feeds **both** the
 single-select Captain dropdown and the multi-select Crew chips on the Log tab
