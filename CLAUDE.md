@@ -129,6 +129,11 @@ Built since v1, at the owner's request (not unprompted scope creep):
   bottom of the Repairs tab (28 Sep 2026)
 - Add/remove Captain & Crew names in-app, stored in a `Crew` sheet tab
   (28 Sep 2026)
+- An optional photo on the **New ticket** form, previewed as soon as it's
+  picked and saved as the ticket's Before photo (28 Sep 2026). It uploads
+  *after* the `ticket` call succeeds, through the existing `photo` action — no
+  script change. If only the photo fails, the ticket stands and a warning
+  points to the card's Before slot to retry.
 
 Explicitly deferred, do not build unprompted:
 

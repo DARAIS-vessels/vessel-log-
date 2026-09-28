@@ -273,6 +273,10 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .photo-slot.filled{border-style:solid;border-color:var(--line-soft);padding:0}
 .photo-slot.filled img{width:100%;height:100%;object-fit:cover;display:block}
 .photo-slot.busy{opacity:.5;pointer-events:none}
+.new-photo{display:flex;align-items:center;gap:12px}
+.photo-slot.big{width:112px;height:112px;border-radius:12px;gap:5px}
+.photo-slot.big span{font-size:10px}
+.photo-slot.big.filled > svg,.photo-slot.big.filled > span{display:none}
 .photo-slot .photo-badge{
   position:absolute;bottom:3px;right:3px;width:17px;height:17px;border-radius:50%;
   background:var(--ok);border:1.5px solid var(--hull);color:var(--abyss);
@@ -473,6 +477,18 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
         <textarea id="t-desc" placeholder="When it happened, what it sounds or looks like, whether the boat is still usable…"></textarea>
       </div>
       <div class="field">
+        <span class="placard">Photo <span style="color:var(--faint);text-transform:none;letter-spacing:0">— optional</span></span>
+        <div class="new-photo">
+          <label class="photo-slot big" id="t-photo-slot">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <span>Add photo</span>
+            <input type="file" accept="image/*" capture="environment" id="t-photo" hidden>
+          </label>
+          <button type="button" class="btn sm ghost" id="t-photo-clear" style="display:none">Remove</button>
+        </div>
+        <p class="hint">Saved as the ticket's Before photo. The After photo is added from the ticket once it's fixed.</p>
+      </div>
+      <div class="field">
         <span class="placard">Reported by</span>
         <select id="t-by"><option value="">Select operator</option></select>
       </div>
@@ -571,6 +587,7 @@ const S = {
   boat: CONFIG.BOATS[0].id, fuel: null, hours: {}, crew: [],
   roster: CONFIG.OPERATORS.slice(),   // Captain + Crew names; replaced by the sheet's Crew tab once it exists
   tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tKind: "repair", tView: "all", mBoat: CONFIG.BOATS[0].id,
+  tPhoto: null,   // new-ticket photo, already compressed (base64), until Open ticket
   live: !!CONFIG.SHEET_URL.trim(), busy: false
 };
 const $ = s => document.querySelector(s);
@@ -1247,6 +1264,19 @@ $("#save-ticket").onclick = async () => {
   try {
     await api({ action: "ticket", ticket: t });
     if (S.live) S.tickets.unshift(t);
+
+    // The photo goes up only once the ticket row exists to attach it to. If
+    // it fails the ticket still stands — the card's Before slot can retry.
+    let photoFailed = false;
+    if (S.tPhoto) {
+      btn.textContent = "Uploading photo…";
+      try {
+        const d = await api({ action: "photo", id: t.id, which: "before", mime: "image/jpeg", data: S.tPhoto });
+        t.beforePhoto = d.url;
+      } catch (e) { photoFailed = true; }
+    }
+    setTicketPhoto(null);
+
     ["t-title","t-part","t-desc"].forEach(id => $("#" + id).value = "");
     $("#t-by").value = "";
     S.tKind = "repair";
@@ -1255,10 +1285,35 @@ $("#save-ticket").onclick = async () => {
     ticketKindHint();
     switchTicketTab("all");
     paint();
-    toast("", service ? "Service ticket opened" : "Ticket opened", title);
+    if (photoFailed) toast("warn", "Ticket opened — photo didn't upload", "Tap Before on the ticket to try the photo again.");
+    else toast("", service ? "Service ticket opened" : "Ticket opened", title);
   } catch (e) { toast("bad", "Not saved", e.message); }
   finally { S.busy = false; btn.disabled = false; btn.textContent = "Open ticket"; }
 };
+
+/* The new-ticket photo is shrunk as soon as it's picked, so the preview shows
+   right away and Open ticket isn't held up doing it. */
+function setTicketPhoto(data) {
+  S.tPhoto = data;
+  const slot = $("#t-photo-slot"), img = slot.querySelector("img");
+  slot.classList.toggle("filled", !!data);
+  if (img) img.remove();
+  if (data) slot.insertAdjacentHTML("afterbegin", `<img src="data:image/jpeg;base64,${data}" alt="Photo for this ticket">`);
+  $("#t-photo-clear").style.display = data ? "" : "none";
+  $("#t-photo").value = "";
+}
+
+$("#t-photo").onchange = async () => {
+  const file = $("#t-photo").files[0];
+  if (!file) return;
+  const slot = $("#t-photo-slot");
+  slot.classList.add("busy");
+  try { setTicketPhoto(await compressImage(file, 1280, 0.72)); }
+  catch (e) { toast("bad", "Couldn't use that photo", e.message); }
+  finally { slot.classList.remove("busy"); }
+};
+
+$("#t-photo-clear").onclick = () => setTicketPhoto(null);
 
 function switchTicketTab(t) {
   S.tView = t;
