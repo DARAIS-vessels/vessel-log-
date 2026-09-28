@@ -125,6 +125,10 @@ Built since v1, at the owner's request (not unprompted scope creep):
 - One Fleet card per boat, a twin's engines side by side (Sep 2026)
 - A **Scheduled service** ticket type that makes that boat's hour meters read
   SERVICE DUE until the ticket is closed (Sep 2026)
+- Finished repairs fold into a collapsed **Finished repairs** bar at the
+  bottom of the Repairs tab (28 Sep 2026)
+- Add/remove Captain & Crew names in-app, stored in a `Crew` sheet tab
+  (28 Sep 2026)
 
 Explicitly deferred, do not build unprompted:
 
@@ -175,9 +179,23 @@ entered honestly. Keep the record here until there's somewhere better.
 Jesse B., Kate G., Andrew G., Landon K., Sydney C., Lev G., Julio L., Paige W.,
 Nicole M., Lauren K., Elizabeth M., Hendrikje J.
 
-`CONFIG.OPERATORS` — the name is legacy, but it feeds **both** the single-select
-Captain dropdown and the multi-select Crew chips on the Log tab, so don't
-rename it to something Captain-specific. The Crew chips sit behind a collapsed
+**The roster is editable in-app (Sep 2026).** Captain dropdown ▸ *Edit names…*
+or the *Edit names…* chip at the end of the Crew chips opens `#roster`, a
+`<dialog>` to add or remove names (remove has a confirm). The list lives in a
+**`Crew` tab** in the sheet (`addCrew` / `deleteCrew`, both idempotent and
+case-insensitive, each replying with the whole updated list). Until the first
+edit there is no `Crew` tab and `load` returns `crew: null`, so the app falls
+back to `CONFIG.OPERATORS`; the first edit creates the tab **seeded from the
+client's current list** (`seed`), and from then on `CONFIG.OPERATORS` is not
+read — edit names in the app or the sheet, not in the code. Removing a name
+never touches past log rows. The roster above is the built-in starting list,
+not necessarily the live one. An un-redeployed script answers "Unknown
+action", which the editor reports as "the sheet's script needs updating".
+
+`CONFIG.OPERATORS` / `S.roster` — the name is legacy, but it feeds **both** the
+single-select Captain dropdown and the multi-select Crew chips on the Log tab
+(and Repairs ▸ Reported by), so don't rename it to something Captain-specific.
+`renderRoster()` refills all three. The Crew chips sit behind a collapsed
 summary button (`#crew-toggle` / `crewSummary()`) that reads "Kate G., Jesse B.
 +2" — the roster outgrew an always-open chip grid. A native multi-select was
 considered and rejected: it hides the selection and is worse on a phone. Activity and location are structured
@@ -211,7 +229,8 @@ in-memory so the app is fully usable before the sheet is wired up. Three views
 `meters()`, `ticketList()`, `maintList()`, `recent()`, `badge()`.
 
 **apps-script.gs** — `doPost` actions: `load`, `log`, `deleteLog`, `ticket`,
-`deleteTicket`, `close`, `photo`, `maint`, `maintDone`, `deleteMaint`.
+`deleteTicket`, `close`, `photo`, `maint`, `maintDone`, `deleteMaint`,
+`addCrew`, `deleteCrew`.
 
 Engine hours live in **one tab per boat** (`Logs - Boston Whaler`,
 `Logs - Force`, `Logs - Barge`), by owner request — one combined `Logs` tab got

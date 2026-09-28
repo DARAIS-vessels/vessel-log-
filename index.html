@@ -39,7 +39,9 @@ const CONFIG = {
                  { id: "stbd", label: "Starboard", baselineHours: 20 } ] }
   ],
 
-  // 4. Operators, in the order you want them listed.
+  // 4. Operators, in the order you want them listed. This is only the starting
+  //    list: once anyone uses "Edit names…" in the app, the sheet's Crew tab
+  //    holds the roster and this list is no longer read.
   OPERATORS: ["Jesse B.","Kate G.","Andrew G.","Landon K.","Sydney C.",
               "Lev G.","Julio L.","Paige W.","Nicole M.","Lauren K.",
               "Elizabeth M.","Hendrikje J."],
@@ -137,6 +139,27 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) s
 .seg.boats button{flex:0 1 calc(50% - 4px)}
 .seg.crew{margin-top:8px}
 .seg.crew button{flex:0 1 auto;padding:9px 13px;font-size:13px;border-radius:99px}
+.seg.crew button.edit-names{background:none;border-style:dashed;color:var(--buoy)}
+
+/* ---- captain & crew name editor ---- */
+#roster{
+  width:min(440px,calc(100% - 32px));max-height:calc(100dvh - 48px);margin:auto;
+  background:var(--hull);color:var(--ink);border:1px solid var(--line);border-radius:16px;
+  padding:20px 18px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+#roster::backdrop{background:rgba(2,8,18,.72)}
+#roster-list{list-style:none;margin:0 0 14px;padding:0;max-height:44vh;overflow-y:auto;border-top:1px solid var(--line-soft)}
+#roster-list li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:15px}
+#roster-list li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#roster-list li.none{color:var(--faint);font-size:14px;padding:12px 0}
+#roster-list .del{width:40px;height:40px}
+.roster-add{display:flex;gap:8px}
+.roster-add input{flex:1;min-width:0}
+.roster-add .btn{flex:none;padding:0 20px}
+.roster-msg{min-height:20px;margin:8px 0 10px;font-size:13px;color:var(--mute)}
+.roster-msg.ok{color:var(--ok)}
+.roster-msg.warn{color:var(--beacon)}
+.roster-msg.bad{color:var(--fault)}
 /* Optional field, so it sits to content width rather than spanning the form.
    min-height keeps a 44px tap target at the smaller type size. */
 .picker{
@@ -528,12 +551,25 @@ hr.rule{border:none;border-top:1px solid var(--line-soft);margin:22px 0}
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<dialog id="roster" aria-labelledby="roster-title">
+  <span class="placard" id="roster-title">Captain &amp; crew names</span>
+  <p class="hint" style="margin:0 0 14px">Shared by everyone — changes save to the sheet. Removing a name doesn't touch past log entries.</p>
+  <ul id="roster-list"></ul>
+  <form id="roster-form" class="roster-add">
+    <input type="text" id="roster-name" placeholder="New name, e.g. Alex P." maxlength="40" autocomplete="off" autocapitalize="words" aria-label="New name">
+    <button type="submit" class="btn sm" id="roster-add">Add</button>
+  </form>
+  <p id="roster-msg" class="roster-msg" role="status" aria-live="polite"></p>
+  <button type="button" class="btn ghost" id="roster-done">Done</button>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 /* ===================== state ===================== */
 const S = {
   logs: [], tickets: [], maint: [],
   boat: CONFIG.BOATS[0].id, fuel: null, hours: {}, crew: [],
+  roster: CONFIG.OPERATORS.slice(),   // Captain + Crew names; replaced by the sheet's Crew tab once it exists
   tBoat: CONFIG.BOATS[0].id, tPrio: "Medium", tKind: "repair", tView: "all", mBoat: CONFIG.BOATS[0].id,
   live: !!CONFIG.SHEET_URL.trim(), busy: false
 };
@@ -614,6 +650,13 @@ function demo(p) {
     return { ok: true };
   }
   if (p.action === "deleteMaint") { S.maint = S.maint.filter(m => m.id !== p.id); return { ok: true }; }
+  if (p.action === "addCrew") {
+    const have = S.roster.some(n => n.toLowerCase() === p.name.toLowerCase());
+    return { ok: true, duplicate: have, crew: have ? S.roster : [...S.roster, p.name] };
+  }
+  if (p.action === "deleteCrew") {
+    return { ok: true, crew: S.roster.filter(n => n.toLowerCase() !== p.name.toLowerCase()) };
+  }
   if (p.action === "ticket") { S.tickets.unshift(p.ticket); return { ok: true }; }
   if (p.action === "close") {
     const t = S.tickets.find(x => x.id === p.id);
@@ -627,6 +670,7 @@ async function load() {
   try {
     const d = await api({ action: "load" });
     S.logs = d.logs || []; S.tickets = d.tickets || []; S.maint = d.maintenance || [];
+    if (Array.isArray(d.crew)) { S.roster = d.crew; renderRoster(); }
   } catch (e) {
     toast("bad", "Can't reach the sheet", e.message);
   }
@@ -702,10 +746,12 @@ function crewSummary() {
 
 function crewChips() {
   const host = $("#f-crew");
-  host.innerHTML = CONFIG.OPERATORS.map(o =>
-    `<button type="button" data-v="${esc(o)}" aria-pressed="${S.crew.includes(o)}">${esc(o)}</button>`).join("");
+  host.innerHTML = S.roster.map(o =>
+    `<button type="button" data-v="${esc(o)}" aria-pressed="${S.crew.includes(o)}">${esc(o)}</button>`).join("") +
+    `<button type="button" class="edit-names" data-edit="1">Edit names…</button>`;
   host.onclick = ev => {
     const b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.edit) return openRoster();
     const v = b.dataset.v;
     S.crew = S.crew.includes(v) ? S.crew.filter(x => x !== v) : [...S.crew, v];
     b.setAttribute("aria-pressed", S.crew.includes(v));
@@ -713,6 +759,81 @@ function crewChips() {
   };
   crewSummary();
 }
+
+/* Refills everything that lists names — Captain, Reported by, the Crew chips —
+   keeping current picks that are still on the roster. */
+function renderRoster() {
+  const fill = (sel, placeholder, withEdit) => {
+    const keep = sel.value;
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      S.roster.map(o => `<option>${esc(o)}</option>`).join("") +
+      (withEdit ? `<option value="__edit">Edit names…</option>` : "");
+    sel.value = S.roster.includes(keep) ? keep : "";
+  };
+  fill($("#f-operator"), "Select captain", true);
+  fill($("#t-by"), "Select operator", false);
+  S.crew = S.crew.filter(n => S.roster.includes(n));
+  crewChips();
+  if ($("#roster").open) rosterList();
+}
+
+function rosterList() {
+  $("#roster-list").innerHTML = S.roster.length ? S.roster.map(n => `
+    <li><span>${esc(n)}</span>
+      <button type="button" class="del" data-remove="${esc(n)}" aria-label="Remove ${esc(n)}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+      </button></li>`).join("")
+    : `<li class="none">No names yet — add one below.</li>`;
+}
+
+function openRoster() {
+  rosterList();
+  $("#roster-name").value = "";
+  rosterMsg("", "");
+  $("#roster").showModal();
+}
+
+// Feedback shows inside the editor — a toast would sit behind the modal.
+function rosterMsg(kind, text) {
+  const m = $("#roster-msg");
+  m.className = "roster-msg" + (kind ? " " + kind : "");
+  m.textContent = text;
+}
+
+/* Adds and removes save straight to the sheet; the reply carries the whole
+   updated list so every open picker matches what the sheet now holds. */
+async function rosterSave(payload, btn) {
+  btn.disabled = true;
+  try {
+    const d = await api({ ...payload, seed: S.roster });
+    if (Array.isArray(d.crew)) S.roster = d.crew;
+    renderRoster();
+    return d;
+  } catch (e) {
+    const old = /Unknown action/.test(e.message);
+    rosterMsg("bad", "Didn't save — " + (old ? "the sheet's script needs updating before names can be edited." : e.message));
+  } finally { btn.disabled = false; }
+}
+
+$("#roster-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const input = $("#roster-name"), name = input.value.trim().replace(/\s+/g, " ");
+  if (!name) return input.focus();
+  const d = await rosterSave({ action: "addCrew", name }, $("#roster-add"));
+  if (!d) return;
+  input.value = "";
+  if (d.duplicate) rosterMsg("warn", `${name} is already on the list`);
+  else rosterMsg("ok", `${name} added`);
+};
+
+$("#roster-list").onclick = async ev => {
+  const b = ev.target.closest("[data-remove]"); if (!b) return;
+  const name = b.dataset.remove;
+  if (!confirm(`Remove ${name} from the list? Past log entries keep the name.`)) return;
+  if (await rosterSave({ action: "deleteCrew", name }, b)) rosterMsg("ok", `${name} removed`);
+};
+
+$("#roster-done").onclick = () => $("#roster").close();
 
 function buildForm() {
   $("#f-date").value = today();
@@ -726,11 +847,17 @@ function buildForm() {
   segment($("#t-kind"), TICKET_KINDS, () => S.tKind, v => { S.tKind = v; ticketKindHint(); });
   segment($("#f-fuel"), CONFIG.FUEL.map(f => ({ v: f, t: f })), () => S.fuel, v => S.fuel = v);
 
-  const opts = CONFIG.OPERATORS.map(o => `<option>${esc(o)}</option>`).join("");
-  $("#f-operator").insertAdjacentHTML("beforeend", opts);
-  $("#t-by").insertAdjacentHTML("beforeend", opts);
+  renderRoster();
 
-  crewChips();
+  // "Edit names…" is an action, not a captain: open the editor and put the
+  // dropdown back on whoever was picked before.
+  const cap = $("#f-operator");
+  let lastCaptain = "";
+  cap.onfocus = () => { lastCaptain = cap.value; };
+  cap.onchange = () => {
+    if (cap.value === "__edit") { cap.value = lastCaptain; openRoster(); }
+    else lastCaptain = cap.value;
+  };
 
   $("#crew-toggle").onclick = () => {
     const list = $("#f-crew"), open = list.style.display === "flex";

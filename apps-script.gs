@@ -26,6 +26,7 @@ var LOG_HEAD = ["Timestamp","EntryID","Date","Boat","Vessel","Engine","EngineLab
 var TIC_HEAD = ["TicketID","Created","Boat","Component","Issue","Priority",
                 "ReportedBy","Details","Auto","Status","Closed","BeforePhoto","AfterPhoto"];
 var MAINT_HEAD = ["ItemID","Boat","Item","LastDone","IntervalMonths","Notes","PartNumber","OrderLink"];
+var CREW_HEAD = ["Name","Added"];
 
 function sheet_(name, head) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -97,6 +98,8 @@ function doPost(e) {
     if (p.action === "maint")        return out_(addMaint_(p.item));
     if (p.action === "maintDone")    return out_(setMaintDone_(p.id, p.date));
     if (p.action === "deleteMaint")  return out_(deleteMaint_(p.id));
+    if (p.action === "addCrew")      return out_(addCrew_(p.name, p.seed));
+    if (p.action === "deleteCrew")   return out_(deleteCrew_(p.name, p.seed));
     return out_({ ok: false, error: "Unknown action: " + p.action });
 
   } catch (err) {
@@ -145,7 +148,52 @@ function load_() {
              interval: Number(r[4]) || 0, notes: r[5] || "", part: r[6] || "", link: r[7] || "" };
   }).reverse();
 
-  return { ok: true, logs: logs, tickets: tickets, maintenance: maintenance };
+  return { ok: true, logs: logs, tickets: tickets, maintenance: maintenance, crew: crew_() };
+}
+
+/* ---- crew roster ----
+   The Captain and Crew name list. Until someone edits it in the app there is
+   no Crew tab and this returns null, so the app keeps its built-in
+   CONFIG.OPERATORS. The first edit creates the tab seeded with that list, and
+   from then on the tab is the one roster every phone reads. Past log rows
+   keep whatever name they were saved with. */
+function crew_() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Crew");
+  if (!sh) return null;
+  return sh.getDataRange().getValues().slice(1)
+    .map(function (r) { return String(r[0]).trim(); })
+    .filter(function (n) { return n; });
+}
+
+function crewSheet_(seed) {
+  var fresh = !SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Crew");
+  var sh = sheet_("Crew", CREW_HEAD);
+  if (fresh && seed && seed.length) {
+    sh.getRange(2, 1, seed.length, 2).setValues(seed.map(function (n) { return [String(n), ""]; }));
+  }
+  return sh;
+}
+
+/** Idempotent: a name already on the list (any capitalization) isn't added twice. */
+function addCrew_(name, seed) {
+  name = String(name || "").trim();
+  if (!name) return { ok: false, error: "Enter a name first." };
+  if (name.length > 40) return { ok: false, error: "That name is too long." };
+  var sh = crewSheet_(seed);
+  var have = (crew_() || []).some(function (n) { return n.toLowerCase() === name.toLowerCase(); });
+  if (!have) sh.appendRow([name, new Date()]);
+  return { ok: true, duplicate: have, crew: crew_() };
+}
+
+/** Idempotent: removing a name that's already gone just returns the list. */
+function deleteCrew_(name, seed) {
+  name = String(name || "").trim().toLowerCase();
+  var sh = crewSheet_(seed);
+  var vals = sh.getDataRange().getValues();
+  for (var i = vals.length - 1; i >= 1; i--) {
+    if (String(vals[i][0]).trim().toLowerCase() === name) sh.deleteRow(i + 1);
+  }
+  return { ok: true, crew: crew_() };
 }
 
 /** Hours already banked on one engine, baseline included. */
